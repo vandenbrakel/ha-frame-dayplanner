@@ -48,7 +48,7 @@ In `modules`:
 | `events`  | Today's events, highlighted ones big and in capitals |
 | `sum`     | A sum, e.g. `3 + 4 = ?` |
 | `word`    | A klankzuiver word, e.g. `vis` |
-| `week`    | Today and the next 6 days (today on top), one colour per day, with event icons |
+| `week`    | Week strip, one colour per day, with event icons. `week_start`: `monday` (default), `sunday`, or `today` (today on top, then the next 6 days) |
 | `spacer`, `line` | Empty space or a thin line |
 
 Portrait default:

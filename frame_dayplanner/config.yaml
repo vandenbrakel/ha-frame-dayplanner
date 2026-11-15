@@ -1,5 +1,5 @@
 name: Frame Dayplanner
-version: "0.3.2"
+version: "0.4.0"
 slug: frame_dayplanner
 description: Kid-friendly day planner (clock, weather, events, sums, words) pushed to a Samsung The Frame in art mode.
 url: https://github.com/vandenbrakel/ha-frame-dayplanner
@@ -84,6 +84,7 @@ options:
   holidays_country: NL
   holidays_extra: true
   max_events: 4
+  week_start: monday
   week_colors: "#2f6fd6, #3a9b4a, #f08a24, #f2c230, #e0453a, #3a3a3a, #3a3a3a"
   sum_operations: "+"
   sum_max: 10
@@ -156,6 +157,7 @@ schema:
   holidays_country: str?
   holidays_extra: bool
   max_events: int(0,8)
+  week_start: list(monday|sunday|today)
   week_colors: str
   sum_operations: str
   sum_max: int(2,1000)

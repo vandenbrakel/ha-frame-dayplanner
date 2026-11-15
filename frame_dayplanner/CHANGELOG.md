@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.0
+
+- `week_start` setting for the week strip: monday (default), sunday or today on top
+
 ## 0.3.2
 
 - Past weather periods use all history updates (temperature changes too), not only condition changes

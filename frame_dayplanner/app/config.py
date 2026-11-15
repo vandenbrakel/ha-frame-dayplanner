@@ -66,6 +66,7 @@ DEFAULTS: dict = {
     "holidays_country": "NL",
     "holidays_extra": True,
     "max_events": 4,
+    "week_start": "monday",
     "week_colors": "#2f6fd6, #3a9b4a, #f08a24, #f2c230, #e0453a, #3a3a3a, #3a3a3a",
     "sum_operations": "+",
     "sum_max": 10,

@@ -20,6 +20,14 @@ WEATHER_TTL = 15 * 60
 CALENDAR_TTL = 5 * 60
 
 
+def strip_start(cfg: Config, today: date) -> date:
+    """First day of the week strip: today, or the current week's monday / sunday."""
+    if cfg.week_start == "today":
+        return today
+    first = 6 if cfg.week_start == "sunday" else 0
+    return today - timedelta(days=(today.weekday() - first) % 7)
+
+
 class Planner:
     def __init__(self, ha: HAClient) -> None:
         self.ha = ha
@@ -58,12 +66,14 @@ class Planner:
                 _LOGGER.info("Weather %s: %s, %d %s forecast entries", cfg.weather_entity,
                              self._current.get("state"), len(self._forecast), kind)
         if cfg.calendar_entities and self.ha.available:
-            week_start = datetime.combine(now.date(), datetime.min.time(), now.tzinfo)  # today + 7 days
-            key = (tuple(cfg.calendar_entities), week_start)
+            # covers the week strip (which may start before today) and the next days
+            week_start = datetime.combine(strip_start(cfg, now.date()), datetime.min.time(), now.tzinfo)
+            key = (tuple(cfg.calendar_entities), week_start, now.date())
             if force or key != self._calendar_key or mono - self._calendar_at > CALENDAR_TTL:
                 items: list[dict] = []
                 for ent in cfg.calendar_entities:
-                    items += await self.ha.calendar(ent, week_start, week_start + timedelta(days=8))
+                    items += await self.ha.calendar(
+                        ent, week_start, datetime.combine(now.date() + timedelta(days=8), datetime.min.time(), now.tzinfo))
                 self._calendar, self._calendar_key, self._calendar_at = items, key, mono
 
     def _weather_periods(self, cfg: Config, now: datetime, strings: dict) -> list[dict]:
@@ -140,7 +150,7 @@ class Planner:
         strings = t(cfg.language)
         tz = now.tzinfo
         events = events_for_day(cfg, now.date(), tz, self._calendar)
-        week_start = now.date()  # the week strip starts today
+        week_start = strip_start(cfg, now.date())
         week_icons = []
         for i in range(7):
             d = week_start + timedelta(days=i)
@@ -167,6 +177,7 @@ class Planner:
             slots=slots,
             seed=seed,
             week_icons=week_icons,
+            week_start=week_start,
             sum_text=puzzles.make_sum(cfg, seed),
             word=word,
             word_sounds=puzzles.sounds(word),

@@ -104,6 +104,9 @@ configuration:
   max_events:
     name: Max events
     description: Maximum number of events shown in the events module.
+  week_start:
+    name: Week strip starts on
+    description: monday or sunday (the current week, today highlighted), or today (today always on top, then the next 6 days).
   week_colors:
     name: Week colours
     description: Seven colours (monday first) for the week strip and the day name.

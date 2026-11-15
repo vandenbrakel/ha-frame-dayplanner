@@ -147,11 +147,20 @@ class SlotAndHiddenTests(unittest.TestCase):
         self.assertTrue(clock._in_half(slot, at(6, 0)))
         self.assertFalse(clock._in_half(slot, at(20, 0)))
 
-    def test_week_strip_starts_today(self):
+    def test_week_start_setting(self):
         cfg_events = [{"title": "Gym", "when": "thu", "icon": "mdi:basketball"}]
-        ctx, _ = self._render(datetime(2026, 11, 19, 8, 0, tzinfo=TZ), events=cfg_events)  # thursday
+        thursday = datetime(2026, 11, 19, 8, 0, tzinfo=TZ)
+        ctx, _ = self._render(thursday, events=cfg_events, week_start="today")
+        self.assertEqual(ctx.week_start, date(2026, 11, 19))
         self.assertEqual(ctx.week_icons[0][0][0], "mdi:basketball")  # today first
-        self.assertEqual(ctx.week_icons[1], [])
+        ctx, _ = self._render(thursday, events=cfg_events)  # default: monday
+        self.assertEqual(ctx.week_start, date(2026, 11, 16))
+        self.assertEqual(ctx.week_icons[3][0][0], "mdi:basketball")
+        ctx, _ = self._render(thursday, events=cfg_events, week_start="sunday")
+        self.assertEqual(ctx.week_start, date(2026, 11, 15))
+        self.assertEqual(ctx.week_icons[4][0][0], "mdi:basketball")
+        ctx, _ = self._render(datetime(2026, 11, 15, 8, 0, tzinfo=TZ), week_start="sunday")  # on sunday itself
+        self.assertEqual(ctx.week_start, date(2026, 11, 15))
 
     def test_readable_text(self):
         from app.render.canvas import readable_on

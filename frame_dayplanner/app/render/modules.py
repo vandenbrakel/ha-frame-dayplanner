@@ -385,19 +385,21 @@ class WordModule(Module):
 
 
 class WeekModule(Module):
-    """Vertical strip of the coming 7 days, today on top, one colour per day."""
+    """Vertical strip of 7 days (week_start: monday, sunday or today on top),
+    one colour per day, today highlighted."""
     name, default_weight = "week", 1.0
 
     def draw(self, draw, box, ctx):
         x0, y0, x1, y1 = box
         th = ctx.theme
-        today = ctx.now.weekday()
+        first = ctx.week_start or ctx.now.date()
         cell_h = (y1 - y0) / 7
         w = x1 - x0
-        for i in range(7):  # i = days from today
-            wd = (today + i) % 7
+        for i in range(7):
+            day = first + timedelta(days=i)
+            wd = day.weekday()
             cy0 = y0 + i * cell_h
-            is_today = i == 0
+            is_today = day == ctx.now.date()
             inset = 0 if is_today else w * 0.1
             box_i = (x0 + inset, cy0 + cell_h * 0.06, x1 - inset, cy0 + cell_h * 0.94)
             col = day_color(ctx, wd)

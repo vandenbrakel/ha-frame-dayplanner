@@ -7,7 +7,7 @@ import random
 from functools import lru_cache
 from pathlib import Path
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 
 from PIL import Image, ImageDraw
 
@@ -28,6 +28,7 @@ class RenderContext:
     events: list[Event] = field(default_factory=list)
     slots: list[Event] = field(default_factory=list)
     week_icons: list[list[tuple[str, str]]] = field(default_factory=list)
+    week_start: date | None = None
     sum_text: str = ""
     word: str = ""
     word_sounds: list[str] = field(default_factory=list)
