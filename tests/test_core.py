@@ -339,6 +339,19 @@ class SlotAndHiddenTests(unittest.TestCase):
                     self.assertIsNone(ImageChops.multiply(changed, mask).getbbox(),
                                       f"figure inside the clock on day {day} ({theme})")
 
+    def test_hidden_colour_follows_theme(self):
+        from app.render.canvas import THEMES, hex_to_rgb
+        from app.render.engine import hidden_color
+
+        for theme in ("paper", "dark"):
+            for value in ("", "#e0453a"):  # empty and the old default both follow the theme
+                ctx, _ = self._render(datetime(2026, 11, 16, 8, 0, tzinfo=TZ), theme=theme, hidden_color=value)
+                ink, bg, got = (hex_to_rgb(THEMES[theme]["ink"]), hex_to_rgb(THEMES[theme]["bg"]),
+                                hidden_color(ctx))
+                self.assertLess(sum(abs(a - b) for a, b in zip(got, ink)), sum(abs(a - b) for a, b in zip(got, bg)))
+        ctx, _ = self._render(datetime(2026, 11, 16, 8, 0, tzinfo=TZ), hidden_color="#2f6fd6")
+        self.assertEqual(hidden_color(ctx), "#2f6fd6")
+
     def test_hidden_same_spot_all_day_and_own_picture(self):
         from PIL import Image
 

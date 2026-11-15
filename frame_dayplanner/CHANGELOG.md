@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.3
+
+- Hidden figure follows the theme by default (drawn in the theme's ink colour); the old default red
+  `#e0453a` is treated as "follow the theme", any other colour is kept
+
 ## 0.7.2
 
 - Sums never use 0 (no more `9 + 0`), numbers are spread evenly, tables start at 2

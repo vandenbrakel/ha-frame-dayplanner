@@ -73,7 +73,7 @@ configuration:
     description: Path to your own PNG (with transparent background) or a folder of pictures, e.g. /share/dayplanner/hidden. Overrides the icons.
   hidden_color:
     name: Hidden figure colour
-    description: Colour of the icon figure.
+    description: "Empty = follow the theme (drawn in the theme's ink colour). Or a fixed colour like #e0453a. Emoji and own pictures keep their colours."
   hidden_size:
     name: Hidden figure size (%)
     description: Size as a percentage of the screen width (smaller = harder).

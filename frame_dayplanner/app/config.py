@@ -55,7 +55,7 @@ DEFAULTS: dict = {
     "hidden_enabled": True,
     "hidden_icons": "mdi:owl, mdi:ladybug, mdi:penguin, mdi:snail, mdi:bee, mdi:duck",
     "hidden_image": "",
-    "hidden_color": "#e0453a",
+    "hidden_color": "",  # empty = follow the theme
     "hidden_size": 5,
     "hidden_count": 1,
     "weather_entity": "",

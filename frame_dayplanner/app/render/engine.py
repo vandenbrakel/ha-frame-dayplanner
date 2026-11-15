@@ -4,6 +4,7 @@ from __future__ import annotations
 import io
 import logging
 import random
+import re
 from functools import lru_cache
 from pathlib import Path
 from dataclasses import dataclass, field
@@ -13,7 +14,7 @@ from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 from ..config import Config
 from ..events import Event
-from .canvas import THEMES, emoji_sprite, emoji_value, icon_char, icon_font
+from .canvas import THEMES, emoji_sprite, emoji_value, icon_char, icon_font, mix
 from .modules import REGISTRY
 
 _LOGGER = logging.getLogger(__name__)
@@ -99,6 +100,17 @@ def _load_image(path: str, mtime: float) -> Image.Image:
     return Image.open(path).convert("RGBA")
 
 
+LEGACY_HIDDEN_COLOR = "#e0453a"  # default before 0.7.3; treated as 'follow the theme'
+
+
+def hidden_color(ctx: RenderContext):
+    """Fixed colour from the settings, or the theme's ink (looks like part of the drawing)."""
+    value = (ctx.cfg.hidden_color or "").strip().lower()
+    if re.fullmatch(r"#[0-9a-f]{6}", value) and value != LEGACY_HIDDEN_COLOR:
+        return value
+    return mix(ctx.theme["ink"], ctx.theme["bg"], 0.12)
+
+
 def _hidden_sprite(ctx: RenderContext, rng: random.Random, size: int) -> Image.Image | None:
     """Own picture (hidden_image) or one of the hidden_icons, as RGBA sprite."""
     path = (ctx.cfg.hidden_image or "").strip()
@@ -120,7 +132,7 @@ def _hidden_sprite(ctx: RenderContext, rng: random.Random, size: int) -> Image.I
         return emoji_sprite(emoji_value(choice), size).copy()
     ch = icon_char(choice)
     sprite = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    ImageDraw.Draw(sprite).text((size / 2, size / 2), ch, font=icon_font(size), fill=ctx.cfg.hidden_color,
+    ImageDraw.Draw(sprite).text((size / 2, size / 2), ch, font=icon_font(size), fill=hidden_color(ctx),
                                 anchor="mm")
     return sprite
 
