@@ -91,6 +91,12 @@
           <button id="stop" class="stop">Stop &amp; restore</button>
         </div>
         <div class="row">
+          <label for="at">As if it is</label>
+          <input id="at" type="datetime-local" title="Leave empty for the real time">
+          <button id="tomorrow7" class="secondary small" type="button">tomorrow 07:00</button>
+          <button id="clearat" class="icon-btn" type="button" title="Real time">×</button>
+        </div>
+        <div class="row">
           <button id="refresh" class="secondary">Refresh preview</button>
           <button id="pair" class="secondary">Connect to TV</button>
         </div>
@@ -150,21 +156,26 @@ function showPreviewBlob(blob) {
   previewUrl = URL.createObjectURL(blob);
   $('img').src = previewUrl;
 }
+let lastStatus = {};
 function refreshPreview() {
   if (settings.dirty) return livePreview();
-  $('img').src = 'api/preview.jpg?t=' + Date.now();
-  $('previewnote').textContent = 'Live preview (not sent to the TV)';
+  // with an 'as if' time and no test running, preview that time (a running test shows its own time)
+  const at = !lastStatus.test_until && $('at').value ? '&at=' + encodeURIComponent($('at').value) : '';
+  $('img').src = 'api/preview.jpg?t=' + Date.now() + at;
+  $('previewnote').textContent = at ? `Preview as if it is ${$('at').value.replace('T', ' ')} (not sent to the TV)`
+    : 'Live preview (not sent to the TV)';
 }
 async function status() {
   try {
     const s = await call('api/status');
+    lastStatus = s;
     $('pill').textContent = {idle: 'idle', test: 'test run', event: 'event', schedule: 'scheduled'}[s.status] || s.status;
     $('pill').className = 'pill' + (s.active ? ' on' : '');
     $('msg').textContent = s.message || '';
     const rows = [
       ['TV', s.tv_host || 'not configured'], ['Orientation', s.orientation],
       ['In schedule', (s.in_schedule ? 'yes' : s.event_window ? `event: ${s.event_window}` : 'no') + (s.suppressed ? ' (stopped manually)' : '')],
-      ['Test until', fmt(s.test_until)], ['Last push', fmt(s.last_push) + (s.last_push_seconds ? ` (${s.last_push_seconds}s)` : '')],
+      ['Test until', fmt(s.test_until)], ...(s.simulated ? [['Showing', new Date(s.simulated).toLocaleString([], {weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'})]] : []), ['Last push', fmt(s.last_push) + (s.last_push_seconds ? ` (${s.last_push_seconds}s)` : '')],
       ['Next push', fmt(s.next_push)], ['Restores art', s.restore_id || '–'],
     ];
     $('info').innerHTML = rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('');
@@ -188,8 +199,19 @@ async function weather() {
     $('weather').innerHTML = html;
   } catch (e) { $('weather').textContent = 'Weather check failed'; }
 }
-$('test').onclick = async () => { await call('api/test', {minutes: Number($('minutes').value) || 10}); status(); };
-$('stop').onclick = async () => { await call('api/stop', {}); status(); };
+$('test').onclick = async () => {
+  const r = await call('api/test', {minutes: Number($('minutes').value) || 10, at: $('at').value || null});
+  if (r.ok === false) $('msg').textContent = r.message;
+  await status(); refreshPreview();
+};
+$('at').onchange = refreshPreview;
+$('tomorrow7').onclick = () => {
+  const d = new Date(); d.setDate(d.getDate() + 1);
+  $('at').value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T07:00`;
+  refreshPreview();
+};
+$('clearat').onclick = () => { $('at').value = ''; refreshPreview(); };
+$('stop').onclick = async () => { await call('api/stop', {}); await status(); refreshPreview(); };
 $('refresh').onclick = refreshPreview;
 $('pair').onclick = async () => { $('msg').textContent = 'Connecting… check the TV for a prompt'; const r = await call('api/pair', {}); $('msg').textContent = r.message; };
 

@@ -5,6 +5,7 @@ import asyncio
 import json
 import logging
 import math
+import re
 import os
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -27,6 +28,7 @@ class Controller:
         self.planner = Planner(ha)
         self.state = self._load_state()
         self.test_until: datetime | None = None
+        self.sim_offset: timedelta | None = None  # test run 'as if it is' another time
         self.suppressed = False  # 'stop' pressed during a schedule window
         self.status = "idle"
         self.message = ""
@@ -75,6 +77,7 @@ class Controller:
         if self.test_until and now < self.test_until:
             return True, "test"
         self.test_until = None
+        self.sim_offset = None
         reason, _detail = self.window(now)
         if not reason:
             self.suppressed = False
@@ -83,16 +86,40 @@ class Controller:
         return False, ""
 
     # -------------------------------------------------------------- commands
-    def start_test(self, minutes: float) -> None:
+    def parse_at(self, value) -> datetime | None:
+        """'2026-11-16T07:00' or '07:00' (next occurrence) -> aware datetime; None if empty."""
+        value = str(value or "").strip()
+        if not value:
+            return None
+        now = self.now()
+        if re.fullmatch(r"\d{1,2}:\d{2}", value):
+            h, m = map(int, value.split(":"))
+            at = now.replace(hour=h, minute=m, second=0, microsecond=0)
+            return at if at > now else at + timedelta(days=1)
+        at = datetime.fromisoformat(value)
+        return at.replace(tzinfo=self.tz) if at.tzinfo is None else at.astimezone(self.tz)
+
+    def start_test(self, minutes: float, at: datetime | None = None) -> None:
+        """Test run for `minutes`; with `at` the planner shows that time (and runs on from it)."""
         minutes = max(1.0, min(float(minutes), 24 * 60))
-        self.test_until = self.now() + timedelta(minutes=minutes)
+        now = self.now()
+        self.test_until = now + timedelta(minutes=minutes)
+        # whole minutes, so the shown minute still flips exactly at the real minute boundary
+        self.sim_offset = (at.replace(second=0, microsecond=0) - now.replace(second=0, microsecond=0)) if at else None
         self.suppressed = False
         self._retry_at = None
-        _LOGGER.info("Test run started for %s minutes", minutes)
+        if self.state["active"]:
+            self.next_push = now  # show the new (simulated) time right away
+        _LOGGER.info("Test run started for %s minutes%s", minutes, f" as if it is {at:%Y-%m-%d %H:%M}" if at else "")
         self._wake.set()
+
+    def display_now(self) -> datetime:
+        """The time shown on the planner: real time, or the simulated test time."""
+        return self.now() + self.sim_offset if self.sim_offset else self.now()
 
     def stop(self) -> None:
         self.test_until = None
+        self.sim_offset = None
         if self.window(self.now())[0]:
             self.suppressed = True
         _LOGGER.info("Stop requested")
@@ -105,7 +132,7 @@ class Controller:
     async def handle_event(self, data: dict) -> None:
         action = str(data.get("action", "test")).lower()
         if action in ("test", "start"):
-            self.start_test(float(data.get("minutes", 10)))
+            self.start_test(float(data.get("minutes", 10)), self.parse_at(data.get("at")))
         elif action == "stop":
             self.stop()
         elif action == "push":
@@ -126,9 +153,10 @@ class Controller:
 
     async def render_jpeg(self, when: datetime | None = None, force_refresh=False, cfg: Config | None = None) -> bytes:
         cfg = cfg or self.cfg
-        when = (when or self.now()).replace(second=0, microsecond=0)
+        when = (when or self.display_now()).replace(second=0, microsecond=0)
+        simulated = abs((when - self.now()).total_seconds()) > 120
         await self.planner.refresh(cfg, when, force=force_refresh)
-        ctx = self.planner.build(cfg, when, self.state.get("session", ""))
+        ctx = self.planner.build(cfg, when, self.state.get("session", ""), simulated=simulated)
         img = await asyncio.to_thread(render, ctx)
         quality = 85 if ctx.theme.get("texture") else 90
         return await asyncio.to_thread(to_jpeg, img, quality)
@@ -238,6 +266,8 @@ class Controller:
                             # a scheduled push the upcoming boundary
                             boundary = self._next_boundary(now)
                             display = boundary if boundary - now <= lead + timedelta(seconds=2) else now
+                            if self.sim_offset:
+                                display += self.sim_offset
                             try:
                                 await self._push(display)
                             except Exception as exc:
@@ -281,6 +311,7 @@ class Controller:
             "active": self.state["active"],
             "message": self.message,
             "test_until": self.test_until.isoformat() if self.test_until else None,
+            "simulated": self.display_now().isoformat() if self.sim_offset else None,
             "in_schedule": self.in_schedule(self.now()),
             "event_window": self.event_window(self.now()),
             "suppressed": self.suppressed,

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.0
+
+- Test runs can pretend another time ("As if it is", e.g. tomorrow 07:00): the TV shows the planner
+  for that day and time and the clock runs on from there. The preview follows the chosen time too.
+  Also via the `frame_dayplanner` event: `at: "07:00"` or `at: "2026-11-16T07:00"`
+
 ## 0.9.4
 
 - The outer ring always shows only the coming 60 minutes; a long prep time just switches the

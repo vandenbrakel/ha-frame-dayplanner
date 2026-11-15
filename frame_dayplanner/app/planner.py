@@ -81,7 +81,9 @@ class Planner:
                         ent, week_start, datetime.combine(now.date() + timedelta(days=8), datetime.min.time(), now.tzinfo))
                 self._calendar, self._calendar_key, self._calendar_at = items, key, mono
 
-    def _weather_periods(self, cfg: Config, now: datetime, strings: dict) -> list[dict]:
+    def _weather_periods(self, cfg: Config, now: datetime, strings: dict, simulated: bool = False) -> list[dict]:
+        """simulated: 'now' is a test time (e.g. tomorrow 07:00); use only the forecast and
+        leave the per-day memory alone."""
         if not cfg.weather_entity:
             return []
         out = []
@@ -89,14 +91,16 @@ class Planner:
             p = {"label": strings["periods"][i], "condition": None, "temperature": None,
                  "past": now.hour >= h1, "current": h0 <= now.hour < h1}
             key = (now.date(), i)
-            if p["current"] and self._current:
+            if p["current"] and self._current and not simulated:
                 p["condition"] = self._current.get("state")
                 p["temperature"] = self._current.get("attributes", {}).get("temperature")
             elif not p["past"]:
                 best = self._pick_forecast(now, rep, evening=i == 2)
                 if best:
                     p["condition"], p["temperature"] = best.get("condition"), best.get("temperature")
-            if p["condition"]:
+            if simulated:
+                pass
+            elif p["condition"]:
                 self._weather_memo[key] = {"condition": p["condition"], "temperature": p["temperature"]}
             elif key in self._weather_memo:
                 p.update(self._weather_memo[key])
@@ -105,8 +109,8 @@ class Planner:
                 if past:
                     p.update(past)
             out.append(p)
-        # forget old days
-        self._weather_memo = {k: v for k, v in self._weather_memo.items() if k[0] >= now.date()}
+        if not simulated:  # forget old days
+            self._weather_memo = {k: v for k, v in self._weather_memo.items() if k[0] >= now.date()}
         return out
 
     def _from_history(self, now: datetime, rep_hour: int) -> dict | None:
@@ -163,7 +167,7 @@ class Planner:
         return out
 
     # --------------------------------------------------------------- context
-    def build(self, cfg: Config, now: datetime, session_id: str = "") -> RenderContext:
+    def build(self, cfg: Config, now: datetime, session_id: str = "", simulated: bool = False) -> RenderContext:
         strings = t(cfg.language)
         tz = now.tzinfo
         events = events_for_day(cfg, now.date(), tz, self._calendar)
@@ -195,7 +199,7 @@ class Planner:
             cfg=cfg,
             now=now,
             strings=strings,
-            weather=self._weather_periods(cfg, now, strings),
+            weather=self._weather_periods(cfg, now, strings, simulated),
             events=events,
             slots=slots,
             seed=seed,

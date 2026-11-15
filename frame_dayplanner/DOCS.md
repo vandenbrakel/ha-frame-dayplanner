@@ -24,7 +24,10 @@ applies them right away. The *Configuration* tab and *Edit in YAML* keep working
 3. Open **Dayplanner** in the sidebar and click **Connect to TV**. The TV
    shows a prompt to allow *FrameDayplanner*. Accept it with the remote.
    The token is saved, so this happens only once.
-4. Click **Start now** to test it for a few minutes.
+4. Click **Start now** to test it for a few minutes. Fill in **As if it is**
+   (or click *tomorrow 07:00*) to see how the planner will look at another
+   time: the TV shows that day and time and the clock runs on from there. The
+   preview follows the chosen time too, without starting a test.
 
 ## Schedule
 
@@ -191,7 +194,8 @@ The sum and word stay the same all day (or hour / session, see `puzzle_refresh`)
 ## Automations
 
 The add-on listens to the event `frame_dayplanner` with data
-`action: test | stop | push` and `minutes` (for `test`). In a script or
+`action: test | stop | push`, `minutes` (for `test`) and optionally `at`
+(`"07:00"` = the next 07:00, or `"2026-11-16T07:00"`) to pretend another time. In a script or
 automation:
 
 ```yaml

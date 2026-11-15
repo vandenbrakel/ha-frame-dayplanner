@@ -131,8 +131,12 @@ def make_app(ctrl: Controller) -> web.Application:
         return web.json_response(ctrl.status_dict())
 
     @routes.get("/api/preview.jpg")
-    async def preview(_req):
-        jpeg = await ctrl.render_jpeg(force_refresh=True)
+    async def preview(req):
+        try:
+            at = ctrl.parse_at(req.query.get("at"))
+        except ValueError:
+            at = None
+        jpeg = await ctrl.render_jpeg(at, force_refresh=True)
         return web.Response(body=jpeg, content_type="image/jpeg", headers={"Cache-Control": "no-store"})
 
     @routes.get("/api/weather")
@@ -188,7 +192,11 @@ def make_app(ctrl: Controller) -> web.Application:
     @routes.post("/api/test")
     async def test(req):
         data = await req.json() if req.can_read_body else {}
-        ctrl.start_test(float(data.get("minutes", 10)))
+        try:
+            at = ctrl.parse_at(data.get("at"))
+        except ValueError:
+            return web.json_response({"ok": False, "message": f"Invalid time: {data.get('at')}"}, status=400)
+        ctrl.start_test(float(data.get("minutes", 10)), at)
         return web.json_response(ctrl.status_dict())
 
     @routes.post("/api/stop")

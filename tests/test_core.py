@@ -176,6 +176,39 @@ class EventWindowTests(unittest.TestCase):
         # tuesday: no event
         self.assertEqual(c.desired(datetime(2026, 11, 17, 13, 0, tzinfo=TZ)), (False, ""))
 
+    def test_simulated_test_time(self):
+        from unittest import mock
+
+        c = self._ctrl(schedule=[])
+        real = datetime(2026, 11, 15, 23, 28, 41, tzinfo=TZ)
+        with mock.patch.object(type(c), "now", lambda self: real):
+            at = c.parse_at("07:00")
+            self.assertEqual(at, datetime(2026, 11, 16, 7, 0, tzinfo=TZ))        # next occurrence
+            self.assertEqual(c.parse_at("23:50"), datetime(2026, 11, 15, 23, 50, tzinfo=TZ))
+            self.assertEqual(c.parse_at("2026-11-20T16:30"), datetime(2026, 11, 20, 16, 30, tzinfo=TZ))
+            self.assertIsNone(c.parse_at(""))
+            c.start_test(10, at)
+            shown = c.display_now()
+            self.assertEqual((shown.day, shown.hour, shown.minute), (16, 7, 0))
+            self.assertEqual(shown.second, 41)                                    # minutes flip with real time
+            self.assertTrue(c.status_dict()["simulated"].startswith("2026-11-16T07:00"))
+            c.stop()
+            self.assertEqual(c.display_now(), real)
+
+    def test_simulation_keeps_weather_memory(self):
+        from app.config import build_config
+        from app.ha import HAClient
+        from app.planner import Planner
+
+        cfg = build_config({"weather_entity": "weather.x"})
+        p = Planner(HAClient())
+        p._current = {"state": "sunny", "attributes": {"temperature": 9}}
+        today = datetime(2026, 11, 15, 10, 0, tzinfo=TZ)
+        p._weather_periods(cfg, today, {"periods": ["a", "b", "c"]})
+        memo = dict(p._weather_memo)
+        p._weather_periods(cfg, datetime(2026, 11, 16, 7, 0, tzinfo=TZ), {"periods": ["a", "b", "c"]}, simulated=True)
+        self.assertEqual(p._weather_memo, memo)
+
     def test_setting_off_and_prep_time(self):
         ev = [{"title": "Voetbal", "when": "mon", "start": "17:00", "end": "18:00"}]
         at = lambda h, m: datetime(2026, 11, 16, h, m, tzinfo=TZ)  # noqa: E731
