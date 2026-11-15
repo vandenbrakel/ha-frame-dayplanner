@@ -110,3 +110,19 @@ def hex_to_rgb(value: str, fallback=(120, 120, 120)) -> tuple[int, int, int]:
 def mix(c1, c2, amount: float):
     a, b = hex_to_rgb(c1) if isinstance(c1, str) else c1, hex_to_rgb(c2) if isinstance(c2, str) else c2
     return tuple(int(a[i] + (b[i] - a[i]) * amount) for i in range(3))
+
+
+def _luminance(rgb) -> float:
+    def ch(c):
+        c = c / 255
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+    r, g, b = rgb
+    return 0.2126 * ch(r) + 0.7152 * ch(g) + 0.0722 * ch(b)
+
+
+def readable_on(background, dark="#2b2622", light="#ffffff") -> str:
+    """White or dark text, whichever has the higher contrast on background."""
+    bg = hex_to_rgb(background) if isinstance(background, str) else background
+    lb = _luminance(bg)
+    contrast = lambda fg: (max(lb, _luminance(hex_to_rgb(fg))) + 0.05) / (min(lb, _luminance(hex_to_rgb(fg))) + 0.05)
+    return light if contrast(light) >= contrast(dark) else dark

@@ -40,7 +40,7 @@ In `modules`:
 
 | Module    | What it shows |
 |-----------|---------------|
-| `day`     | MAANDAG |
+| `day`     | MAANDAG, on the colour of the day (`day_background`) |
 | `date`    | 20 november |
 | `clock`   | Analog (or digital) clock, with arcs for today's timed events |
 | `time`    | Digital time only |
@@ -48,7 +48,7 @@ In `modules`:
 | `events`  | Today's events, highlighted ones big and in capitals |
 | `sum`     | A sum, e.g. `3 + 4 = ?` |
 | `word`    | A klankzuiver word, e.g. `vis` |
-| `week`    | Week strip, one colour per day, with event icons |
+| `week`    | Today and the next 6 days (today on top), one colour per day, with event icons |
 | `spacer`, `line` | Empty space or a thin line |
 
 Portrait default:
@@ -75,11 +75,19 @@ clock_slots:
     color: "#e0453a"
 ```
 
-The slot shows as a coloured arc on the clock, with a label below the clock.
-In the hour before it starts (`clock_slot_countdown_minutes`) the label adds
-*nog 13 min*, and the minutes that are left are coloured on the clock face:
-when the minute hand reaches the end of the colour, it's time to go. During
-the slot the label turns solid with *nu!*.
+The clock dial always shows the current half of the day, using the 24-hour
+time: before 12:00 only morning slots and events are drawn, after 12:00 only
+afternoon/evening ones. So a slot at 20:15 never shows up at 08:15.
+
+* Outside its own hour, a slot is a coloured arc on the outer ring (hour scale),
+  like the timed events.
+* From the full hour of the slot (08:00 for 08:15–08:25) until it ends, it is
+  drawn on the **minute scale**: a coloured band just inside the rim from
+  minute 15 to 25. When the minute hand reaches the band, it's time to go.
+  The part that has passed fades out.
+* The label below the clock shows *nog 13 min* in the last
+  `clock_slot_countdown_minutes` before the start, and turns solid with *nu!*
+  during the slot.
 
 ## Hidden figure
 
@@ -168,6 +176,25 @@ dagplanner_test:
 ```
 
 Status is published as `sensor.frame_dayplanner` (`idle`, `schedule`, `test`).
+
+## Weather
+
+Set `weather_entity` to a weather entity that exists in your Home Assistant.
+The **Weather check** on the Dayplanner page lists all your weather entities
+and which forecast each one supports.
+
+Recommended: **Meteorologisk institutt (Met.no)**. It's free, needs no account,
+is built into Home Assistant and gives an *hourly* forecast, so morning,
+afternoon and evening each get their own weather. Add it via
+*Settings → Devices & services → Add integration → Meteorologisk institutt*;
+the entity is usually `weather.forecast_home`.
+
+Alternatives: *OpenWeatherMap* (hourly, free API key) or *Buienradar*
+(daily forecast only, so all three periods show the same day forecast;
+the current period uses the actual conditions).
+
+Periods that have already passed show the forecast that was shown earlier
+that day; right after a restart they show *–*.
 
 ## Notes
 

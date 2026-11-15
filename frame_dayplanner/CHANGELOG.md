@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0
+
+- Clock slots are drawn on the minute scale during their own hour; the dial
+  only shows the current AM/PM half (24h based)
+- Removed the minutes-left wedge (replaced by the minute band)
+- Day name on the colour of the day (`day_background`), text colour picked for readability everywhere
+- Week strip starts with today on top
+- Weather: works with daily / twice-daily forecasts too; weather check on the Dayplanner page
+
 ## 0.2.0
 
 - Clock time slots with label (e.g. *Naar school*), countdown and coloured minutes left

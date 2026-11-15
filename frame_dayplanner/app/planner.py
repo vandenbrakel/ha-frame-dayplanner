@@ -27,6 +27,7 @@ class Planner:
         self._current: dict | None = None
         self._weather_at = 0.0
         self._weather_memo: dict[tuple[date, int], dict] = {}
+        self.weather_info: dict = {"entity": None}
         self._calendar: list[dict] = []
         self._calendar_key: tuple = ()
         self._calendar_at = 0.0
@@ -36,15 +37,30 @@ class Planner:
         mono = _time.monotonic()
         if cfg.weather_entity and self.ha.available and (force or mono - self._weather_at > WEATHER_TTL):
             self._current = await self.ha.state(cfg.weather_entity)
-            self._forecast = await self.ha.forecast(cfg.weather_entity)
+            kind, self._forecast, errors = await self.ha.forecast(cfg.weather_entity)
             self._weather_at = mono
+            self.weather_info = {
+                "entity": cfg.weather_entity,
+                "found": self._current is not None,
+                "state": (self._current or {}).get("state"),
+                "forecast_type": kind or None,
+                "forecast_entries": len(self._forecast),
+                "errors": errors,
+            }
+            if not self._current:
+                _LOGGER.warning("Weather entity %s not found in Home Assistant", cfg.weather_entity)
+            elif not self._forecast:
+                _LOGGER.warning("Weather %s has no forecast: %s", cfg.weather_entity, "; ".join(errors))
+            else:
+                _LOGGER.info("Weather %s: %s, %d %s forecast entries", cfg.weather_entity,
+                             self._current.get("state"), len(self._forecast), kind)
         if cfg.calendar_entities and self.ha.available:
-            week_start = datetime.combine(now.date() - timedelta(days=now.weekday()), datetime.min.time(), now.tzinfo)
+            week_start = datetime.combine(now.date(), datetime.min.time(), now.tzinfo)  # today + 7 days
             key = (tuple(cfg.calendar_entities), week_start)
             if force or key != self._calendar_key or mono - self._calendar_at > CALENDAR_TTL:
                 items: list[dict] = []
                 for ent in cfg.calendar_entities:
-                    items += await self.ha.calendar(ent, week_start, week_start + timedelta(days=7))
+                    items += await self.ha.calendar(ent, week_start, week_start + timedelta(days=8))
                 self._calendar, self._calendar_key, self._calendar_at = items, key, mono
 
     def _weather_periods(self, cfg: Config, now: datetime, strings: dict) -> list[dict]:
@@ -59,17 +75,8 @@ class Planner:
                 p["condition"] = self._current.get("state")
                 p["temperature"] = self._current.get("attributes", {}).get("temperature")
             elif not p["past"]:
-                target = datetime.combine(now.date(), datetime.min.time(), now.tzinfo).replace(hour=rep)
-                best, best_d = None, None
-                for f in self._forecast:
-                    try:
-                        ft = datetime.fromisoformat(f["datetime"]).astimezone(now.tzinfo)
-                    except (KeyError, ValueError):
-                        continue
-                    d = abs((ft - target).total_seconds())
-                    if best_d is None or d < best_d:
-                        best, best_d = f, d
-                if best and best_d < 12 * 3600:
+                best = self._pick_forecast(now, rep, evening=i == 2)
+                if best:
                     p["condition"], p["temperature"] = best.get("condition"), best.get("temperature")
             if p["condition"]:
                 self._weather_memo[key] = {"condition": p["condition"], "temperature": p["temperature"]}
@@ -80,12 +87,30 @@ class Planner:
         self._weather_memo = {k: v for k, v in self._weather_memo.items() if k[0] >= now.date()}
         return out
 
+    def _pick_forecast(self, now: datetime, rep_hour: int, evening: bool) -> dict | None:
+        """Best forecast entry for today at rep_hour (works for hourly, twice_daily, daily)."""
+        target = datetime.combine(now.date(), datetime.min.time(), now.tzinfo).replace(hour=rep_hour)
+        best, best_score = None, None
+        for f in self._forecast:
+            try:
+                ft = datetime.fromisoformat(f["datetime"]).astimezone(now.tzinfo)
+            except (KeyError, ValueError, TypeError):
+                continue
+            score = abs((ft - target).total_seconds())
+            if "is_daytime" in f and f["is_daytime"] == evening:
+                score += 6 * 3600  # twice_daily: prefer day for morning/afternoon, night for evening
+            if ft.date() != now.date():
+                score += 24 * 3600  # daily: prefer today's entry
+            if best_score is None or score < best_score:
+                best, best_score = f, score
+        return best if best_score is not None and best_score < 30 * 3600 else None
+
     # --------------------------------------------------------------- context
     def build(self, cfg: Config, now: datetime, session_id: str = "") -> RenderContext:
         strings = t(cfg.language)
         tz = now.tzinfo
         events = events_for_day(cfg, now.date(), tz, self._calendar)
-        week_start = now.date() - timedelta(days=now.weekday())
+        week_start = now.date()  # the week strip starts today
         week_icons = []
         for i in range(7):
             d = week_start + timedelta(days=i)

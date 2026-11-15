@@ -47,6 +47,10 @@
       <dl id="info"></dl>
     </div>
     <div class="card" style="margin-top:20px">
+      <strong>Weather check</strong>
+      <div id="weather" class="muted">Loading…</div>
+    </div>
+    <div class="card" style="margin-top:20px">
       <strong>Tips</strong>
       <p class="muted">All settings live on the add-on's <em>Configuration</em> tab. The first time you click <em>Connect to TV</em> (or a session starts), the TV asks to allow “FrameDayplanner”; accept it with the remote.</p>
       <p class="muted">From automations or dashboard buttons, fire the event <code>frame_dayplanner</code> with data <code>{"action": "test", "minutes": 10}</code> or <code>{"action": "stop"}</code>. Status is in <code>sensor.frame_dayplanner</code>.</p>
@@ -84,7 +88,26 @@ $('test').onclick = async () => { await call('api/test', {minutes: Number($('min
 $('stop').onclick = async () => { await call('api/stop', {}); status(); };
 $('refresh').onclick = refreshPreview;
 $('pair').onclick = async () => { $('msg').textContent = 'Connecting… check the TV for a prompt'; const r = await call('api/pair', {}); $('msg').textContent = r.message; };
-status(); refreshPreview();
+async function weather() {
+  const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+  try {
+    const w = await call('api/weather');
+    const c = w.configured || {};
+    let html = '';
+    if (!w.ha_connected) html += '<p>No connection to Home Assistant.</p>';
+    else if (!c.entity) html += '<p>No <code>weather_entity</code> configured.</p>';
+    else if (!c.found) html += `<p>⚠️ <code>${esc(c.entity)}</code> does not exist. Pick one below and set it as <code>weather_entity</code>.</p>`;
+    else if (!c.forecast_entries) html += `<p>⚠️ <code>${esc(c.entity)}</code> gives no forecast (${esc((c.errors || []).join('; '))}).</p>`;
+    else html += `<p>✅ <code>${esc(c.entity)}</code>: ${esc(c.state)}, ${c.forecast_entries} ${esc(c.forecast_type)} forecast entries.</p>`;
+    if (w.entities.length) {
+      html += '<dl>' + w.entities.map((e) => `<dt><code>${esc(e.entity_id)}</code></dt><dd>${esc(e.state)}${e.temperature != null ? ', ' + esc(e.temperature) + '°' : ''} · ${esc(e.forecasts.join(', ') || 'no forecast')}</dd>`).join('') + '</dl>';
+    } else if (w.ha_connected) {
+      html += '<p>No weather entities found. Add the <em>Meteorologisk institutt (Met.no)</em> integration.</p>';
+    }
+    $('weather').innerHTML = html;
+  } catch (e) { $('weather').textContent = 'Weather check failed'; }
+}
+status(); refreshPreview(); weather();
 setInterval(status, 3000);
 setInterval(refreshPreview, 60000);
 </script>

@@ -20,6 +20,9 @@ configuration:
   theme:
     name: Theme
     description: paper (warm), white or dark.
+  day_background:
+    name: Day colour behind day name
+    description: Put the colour of today (from week colours) behind the big day name.
   only_in_art_mode:
     name: Only in art mode
     description: Do nothing while someone is watching TV.
@@ -52,13 +55,10 @@ configuration:
     description: Show today's timed events as coloured arcs around the clock.
   clock_slots:
     name: Clock time slots
-    description: "Important moments, e.g. label: Naar school, days: mon-fri, start: 08:15, end: 08:25. Shown as an arc on the clock with a label below it. Optional icon and color."
-  clock_slot_timer:
-    name: Countdown on the clock
-    description: Before a slot starts, colour the minutes that are left on the clock face (like a Time Timer).
+    description: "Important moments, e.g. label: Naar school, days: mon-fri, start: 08:15, end: 08:25. Shown on the clock with a label below it: as an arc on the hour scale, and during its own hour as a band on the minute scale. Optional icon and color."
   clock_slot_countdown_minutes:
     name: Countdown starts (minutes)
-    description: How many minutes before a slot the countdown ("nog 12 min") and the coloured minutes appear.
+    description: How many minutes before a slot the label shows the countdown ("nog 12 min").
   hidden_enabled:
     name: Hidden figure
     description: Hide a small figure somewhere on the planner, in a new spot every day. Can you find it?
@@ -106,7 +106,7 @@ configuration:
     description: Maximum number of events shown in the events module.
   week_colors:
     name: Week colours
-    description: Seven colours (monday first) for the week strip.
+    description: Seven colours (monday first) for the week strip and the day name.
   sum_operations:
     name: Sum operators
     description: "Any of + - x : separated by commas."

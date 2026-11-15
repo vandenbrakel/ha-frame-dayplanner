@@ -28,6 +28,13 @@ def make_app(ctrl: Controller) -> web.Application:
         jpeg = await ctrl.render_jpeg(force_refresh=True)
         return web.Response(body=jpeg, content_type="image/jpeg", headers={"Cache-Control": "no-store"})
 
+    @routes.get("/api/weather")
+    async def weather(_req):
+        await ctrl.planner.refresh(ctrl.cfg, ctrl.now(), force=True)
+        entities = await ctrl.ha.weather_entities() if ctrl.ha.available else []
+        return web.json_response({"configured": ctrl.planner.weather_info, "entities": entities,
+                                  "ha_connected": ctrl.ha.available})
+
     @routes.post("/api/test")
     async def test(req):
         data = await req.json() if req.can_read_body else {}

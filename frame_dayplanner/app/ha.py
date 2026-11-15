@@ -72,18 +72,43 @@ class HAClient:
             _LOGGER.warning("Could not read %s: %s", entity_id, exc)
             return None
 
-    async def forecast(self, entity_id: str) -> list[dict]:
-        """Hourly forecast, falling back to twice_daily / daily."""
+    async def forecast(self, entity_id: str) -> tuple[str, list[dict], list[str]]:
+        """Hourly forecast, falling back to twice_daily / daily.
+
+        Returns (forecast type, entries, errors)."""
+        errors = []
         for kind in ("hourly", "twice_daily", "daily"):
             try:
                 data = await self._post("/services/weather/get_forecasts?return_response",
                                         {"entity_id": entity_id, "type": kind})
                 fc = data.get("service_response", {}).get(entity_id, {}).get("forecast") or []
                 if fc:
-                    return fc
+                    return kind, fc, errors
+                errors.append(f"{kind}: empty")
             except Exception as exc:
-                _LOGGER.debug("Forecast %s for %s failed: %s", kind, entity_id, exc)
-        return []
+                errors.append(f"{kind}: {exc}")
+        return "", [], errors
+
+    async def weather_entities(self) -> list[dict]:
+        """All weather entities with the forecast types they support."""
+        try:
+            states = await self._get("/states")
+        except Exception as exc:
+            _LOGGER.warning("Could not list states: %s", exc)
+            return []
+        out = []
+        for st in states:
+            if not st.get("entity_id", "").startswith("weather."):
+                continue
+            feats = int(st.get("attributes", {}).get("supported_features") or 0)
+            out.append({
+                "entity_id": st["entity_id"],
+                "name": st.get("attributes", {}).get("friendly_name", ""),
+                "state": st.get("state"),
+                "temperature": st.get("attributes", {}).get("temperature"),
+                "forecasts": [n for bit, n in ((2, "hourly"), (4, "twice_daily"), (1, "daily")) if feats & bit],
+            })
+        return out
 
     async def calendar(self, entity_id: str, start: datetime, end: datetime) -> list[dict]:
         try:

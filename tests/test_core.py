@@ -131,6 +131,46 @@ class SlotAndHiddenTests(unittest.TestCase):
         for hm in ((7, 0), (8, 2), (8, 15), (8, 20), (8, 30), (23, 50)):
             self._render(datetime(2026, 11, 16, *hm, tzinfo=TZ), clock_slots=slot)
 
+    def test_minute_mode_uses_24h_hour(self):
+        from app.render.modules import ClockModule
+        from app.events import Event
+
+        clock = ClockModule()
+        slot = Event("Naar school", date(2026, 11, 16), start=datetime(2026, 11, 16, 8, 15, tzinfo=TZ),
+                     end=datetime(2026, 11, 16, 8, 25, tzinfo=TZ))
+        at = lambda h, m: datetime(2026, 11, 16, h, m, tzinfo=TZ)  # noqa: E731
+        self.assertFalse(clock._minute_mode(slot, at(7, 59)))
+        self.assertTrue(clock._minute_mode(slot, at(8, 0)))
+        self.assertTrue(clock._minute_mode(slot, at(8, 24)))
+        self.assertFalse(clock._minute_mode(slot, at(8, 25)))
+        self.assertFalse(clock._minute_mode(slot, at(20, 15)))  # PM, not the 08:xx hour
+        self.assertTrue(clock._in_half(slot, at(6, 0)))
+        self.assertFalse(clock._in_half(slot, at(20, 0)))
+
+    def test_week_strip_starts_today(self):
+        cfg_events = [{"title": "Gym", "when": "thu", "icon": "mdi:basketball"}]
+        ctx, _ = self._render(datetime(2026, 11, 19, 8, 0, tzinfo=TZ), events=cfg_events)  # thursday
+        self.assertEqual(ctx.week_icons[0][0][0], "mdi:basketball")  # today first
+        self.assertEqual(ctx.week_icons[1], [])
+
+    def test_readable_text(self):
+        from app.render.canvas import readable_on
+
+        self.assertEqual(readable_on("#f2c230"), "#2b2622")  # yellow -> dark text
+        self.assertEqual(readable_on("#2f6fd6"), "#ffffff")  # blue -> white text
+        self.assertEqual(readable_on("#3a3a3a"), "#ffffff")
+
+    def test_daily_forecast_is_used(self):
+        from app.ha import HAClient
+        from app.planner import Planner
+
+        cfg = cfg_with(weather_entity="weather.buienradar")
+        p = Planner(HAClient())
+        p._forecast = [{"datetime": "2026-11-16T00:00:00+01:00", "condition": "rainy", "temperature": 9},
+                       {"datetime": "2026-11-17T00:00:00+01:00", "condition": "sunny", "temperature": 12}]
+        periods = p._weather_periods(cfg, datetime(2026, 11, 16, 7, 0, tzinfo=TZ), {"periods": ["a", "b", "c"]})
+        self.assertEqual([x["condition"] for x in periods], ["rainy", "rainy", "rainy"])
+
     def test_hidden_same_spot_all_day_and_own_picture(self):
         from PIL import Image
 

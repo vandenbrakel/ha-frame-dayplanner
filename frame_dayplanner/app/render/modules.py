@@ -9,7 +9,7 @@ import math
 from datetime import timedelta
 
 from .canvas import (draw_icon, draw_text_centered, fit_size, font, hex_to_rgb, mix,
-                     text_size)
+                     readable_on, text_size)
 
 WEATHER_ICONS = {
     "clear-night": ("weather-night", "#5b6c9a"),
@@ -36,6 +36,12 @@ def rounded_panel(draw, box, ctx, fill=None, radius=None):
     draw.rounded_rectangle(box, radius=r, fill=fill or ctx.theme["panel"])
 
 
+def day_color(ctx, weekday: int) -> str:
+    colors = [c.strip() for c in str(ctx.cfg.week_colors).split(",") if c.strip()]
+    colors += ["#888888"] * (7 - len(colors))
+    return colors[weekday]
+
+
 class Module:
     name = ""
     default_weight = 1.0
@@ -52,7 +58,15 @@ class DayModule(Module):
 
     def draw(self, draw, box, ctx):
         text = ctx.strings["days"][ctx.now.weekday()].upper()
-        draw_text_centered(draw, box, text, ctx.theme["ink"], bold=True)
+        if not ctx.cfg.day_background:
+            draw_text_centered(draw, box, text, ctx.theme["ink"], bold=True)
+            return
+        color = day_color(ctx, ctx.now.weekday())
+        x0, y0, x1, y1 = box
+        h = y1 - y0
+        draw.rounded_rectangle(box, radius=h * 0.25, fill=color)
+        draw_text_centered(draw, (x0 + h * 0.35, y0 + h * 0.14, x1 - h * 0.35, y1 - h * 0.14), text,
+                           readable_on(color), bold=True)
 
 
 class DateModule(Module):
@@ -72,6 +86,14 @@ class TimeModule(Module):
 
 
 class ClockModule(Module):
+    """Analog clock.
+
+    The dial shows the current half day (AM or PM, decided on the 24h time):
+    timed events and slots in that half are arcs on an outer ring (hour
+    scale).  During a slot's own hour (e.g. 08:00-08:25 for a slot
+    08:15-08:25) the slot is drawn on the minute scale instead, as a band
+    just inside the rim where the minute hand points.
+    """
     name, default_weight = "clock", 4.4
 
     def draw(self, draw, box, ctx):
@@ -84,9 +106,8 @@ class ClockModule(Module):
         ink = th["ink"]
         now = ctx.now
 
-        # labelled time slots get a legend below the clock
-        slots = [s for s in ctx.slots if self._visible(s, now)][:3]
-        if slots:
+        slots = [s for s in ctx.slots if self._in_half(s, now) or self._minute_mode(s, now)][:3]
+        if slots:  # legend below the clock
             row_h = (y1 - y0) * 0.115
             legend_top = y1 - row_h * len(slots)
             for i, slot in enumerate(slots):
@@ -95,26 +116,18 @@ class ClockModule(Module):
 
         cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
         outer = min(x1 - x0, y1 - y0) / 2
-        arc_items = [e for e in ctx.events if e.timed] if ctx.cfg.clock_event_arcs else []
-        arc_items += slots
+        minute_slots = [s for s in slots if self._minute_mode(s, now)]
+        hour_items = [e for e in ctx.events if e.timed] if ctx.cfg.clock_event_arcs else []
+        hour_items += [s for s in slots if s not in minute_slots]
         ring = ctx.cfg.clock_event_arcs or bool(ctx.cfg.slots)
         r = outer * (0.83 if ring else 0.98)
 
         # face
         draw.ellipse((cx - r, cy - r, cx + r, cy + r), fill=th["bg"], outline=ink, width=max(2, int(r * 0.03)))
-
-        # 'time timer' wedge: minutes left until the next slot starts
-        upcoming = self._upcoming(slots, ctx)
-        if upcoming and ctx.cfg.clock_slot_timer:
-            mins = math.ceil((upcoming.start - now).total_seconds() / 60)
-            a0 = now.minute * 6 - 90
-            rw = r * 0.955
-            draw.pieslice((cx - rw, cy - rw, cx + rw, cy + rw), a0, a0 + mins * 6,
-                          fill=mix(upcoming.color or th["accent"], th["bg"], 0.72))
-
-        # arcs on an outer ring
+        for slot in minute_slots:
+            self._minute_band(draw, cx, cy, r, slot, ctx)
         if ring:
-            self._draw_arcs(draw, cx, cy, r, outer, arc_items, ctx)
+            self._hour_arcs(draw, cx, cy, r, outer, hour_items, ctx)
 
         # ticks
         for i in range(60):
@@ -139,7 +152,7 @@ class ClockModule(Module):
             for m in range(5, 61, 5):
                 a = math.radians(m * 6 - 90)
                 draw.text((cx + r * 0.8 * math.cos(a), cy + r * 0.8 * math.sin(a)),
-                          f"{m % 60:02d}" if m != 60 else "00", font=fm, fill=th["muted"], anchor="mm")
+                          f"{m % 60:02d}", font=fm, fill=th["muted"], anchor="mm")
 
         if style == "both":
             fd = font(r * 0.13, bold=True)
@@ -153,6 +166,7 @@ class ClockModule(Module):
         cap = r * 0.065
         draw.ellipse((cx - cap, cy - cap, cx + cap, cy + cap), fill=ink)
 
+    # ------------------------------------------------------------ helpers
     @staticmethod
     def _hand(draw, cx, cy, deg, length, width, color):
         a = math.radians(deg - 90)
@@ -165,32 +179,57 @@ class ClockModule(Module):
             draw.ellipse((px - w / 2, py - w / 2, px + w / 2, py + w / 2), fill=color)
 
     @staticmethod
-    def _visible(ev, now) -> bool:
-        end = max(ev.end or ev.start, ev.start + timedelta(minutes=1))
-        return end > now and ev.start < now + timedelta(hours=12)
+    def _end(ev):
+        return max(ev.end or ev.start, ev.start + timedelta(minutes=1))
 
     @staticmethod
-    def _upcoming(slots, ctx):
+    def _half(now):
+        start = now.replace(hour=0 if now.hour < 12 else 12, minute=0, second=0, microsecond=0)
+        return start, start + timedelta(hours=12)
+
+    def _in_half(self, ev, now) -> bool:
+        """Still to come (or running) and within the current AM/PM half."""
+        _h0, h1 = self._half(now)
+        return self._end(ev) > now and ev.start < h1
+
+    def _minute_mode(self, slot, now) -> bool:
+        """From the full hour of the slot's start (24h) until it ends."""
+        return slot.start.replace(minute=0, second=0, microsecond=0) <= now < self._end(slot)
+
+    @staticmethod
+    def _upcoming(slot, ctx) -> bool:
         limit = timedelta(minutes=int(ctx.cfg.clock_slot_countdown_minutes))
-        for s in sorted(slots, key=lambda s: s.start):
-            if timedelta(0) < s.start - ctx.now <= limit:
-                return s
-        return None
+        return timedelta(0) < slot.start - ctx.now <= limit
+
+    def _minute_band(self, draw, cx, cy, r, slot, ctx):
+        color = slot.color or ctx.theme["accent"]
+        rb = r * 0.97
+        width = int(r * 0.13)
+        bb = (cx - rb, cy - rb, cx + rb, cy + rb)
+        a0 = slot.start.minute * 6 - 90
+        minutes = min(60.0, max(0.5, (self._end(slot) - slot.start).total_seconds() / 60))
+        a1 = a0 + minutes * 6
+        draw.arc(bb, a0, a1, fill=color, width=width)
+        # the part that has already passed fades out
+        if ctx.now > slot.start:
+            passed = min(minutes, (ctx.now - slot.start).total_seconds() / 60)
+            draw.arc(bb, a0, a0 + passed * 6, fill=mix(color, ctx.theme["bg"], 0.6), width=width)
 
     def _legend_row(self, draw, box, slot, ctx):
         x0, y0, x1, y1 = box
         th = ctx.theme
         h = y1 - y0
         now = ctx.now
-        active = slot.start <= now < max(slot.end, slot.start + timedelta(minutes=1))
+        active = slot.start <= now < self._end(slot)
         color = slot.color or th["accent"]
+        on_color = readable_on(color)
         text = f"{slot.start:%H:%M}"
         if slot.end and slot.end > slot.start:
             text += f"-{slot.end:%H:%M}"
         text += f"  {slot.title}"
         if active:
             text += f"  {ctx.strings['now']}"
-        elif self._upcoming([slot], ctx):
+        elif self._upcoming(slot, ctx):
             n = math.ceil((slot.start - now).total_seconds() / 60)
             text += f"  ({ctx.strings['in_minutes'].format(n=n)})"
         pad = h * 0.12
@@ -204,36 +243,35 @@ class ClockModule(Module):
         pill = (sx - pad * 2, y0 + pad * 0.5, sx + total + pad * 2, y1 - pad * 0.5)
         draw.rounded_rectangle(pill, radius=(pill[3] - pill[1]) / 2, fill=color if active else th["panel"])
         icx = sx + ir
-        draw.ellipse((icx - ir, cy - ir, icx + ir, cy + ir), fill="#ffffff" if active else color)
-        draw_icon(draw, slot.icon or "clock-outline", (icx, cy), ir * 1.3, color if active else "#ffffff")
-        draw.text((sx + 2 * ir + pad * 1.2, cy), text, font=f, fill="#ffffff" if active else th["ink"], anchor="lm")
+        draw.ellipse((icx - ir, cy - ir, icx + ir, cy + ir), fill=on_color if active else color)
+        draw_icon(draw, slot.icon or "clock-outline", (icx, cy), ir * 1.3, color if active else on_color)
+        draw.text((sx + 2 * ir + pad * 1.2, cy), text, font=f, fill=on_color if active else th["ink"], anchor="lm")
 
-    def _draw_arcs(self, draw, cx, cy, r, outer, items, ctx):
+    def _hour_arcs(self, draw, cx, cy, r, outer, items, ctx):
         now = ctx.now
-        horizon = now + timedelta(hours=12)
+        _h0, h1 = self._half(now)
         ring_r = (r + outer) / 2 + outer * 0.005
         width = int((outer - r) * 0.62)
         for ev in items:
-            if not self._visible(ev, now):
+            if not self._in_half(ev, now):
                 continue
             start = max(ev.start, now)
-            end = min(max(ev.end or ev.start, ev.start), horizon - timedelta(minutes=1))
+            end = min(self._end(ev), h1)
             a0 = (start.hour % 12 + start.minute / 60) * 30 - 90
             span = (end - start).total_seconds() / 3600 * 30
             a1 = a0 + max(span, 3)
+            color = ev.color or ctx.theme["accent"]
             bb = (cx - ring_r, cy - ring_r, cx + ring_r, cy + ring_r)
-            draw.arc(bb, a0, a1, fill=ev.color, width=width)
-            # rounded ends
-            for ang in (a0, a1):
+            draw.arc(bb, a0, a1, fill=color, width=width)
+            for ang in (a0, a1):  # rounded ends
                 ra = math.radians(ang)
                 px, py = cx + ring_r * math.cos(ra), cy + ring_r * math.sin(ra)
-                draw.ellipse((px - width / 2, py - width / 2, px + width / 2, py + width / 2), fill=ev.color)
-            # icon in a bubble at the middle of the arc
-            ra = math.radians((a0 + a1) / 2)
+                draw.ellipse((px - width / 2, py - width / 2, px + width / 2, py + width / 2), fill=color)
+            ra = math.radians((a0 + a1) / 2)  # icon bubble in the middle
             px, py = cx + ring_r * math.cos(ra), cy + ring_r * math.sin(ra)
             br = width * 1.15
-            draw.ellipse((px - br, py - br, px + br, py + br), fill=ev.color)
-            draw_icon(draw, ev.icon, (px, py), br * 1.35, "#ffffff")
+            draw.ellipse((px - br, py - br, px + br, py + br), fill=color)
+            draw_icon(draw, ev.icon, (px, py), br * 1.35, readable_on(color))
 
 
 class WeatherModule(Module):
@@ -313,8 +351,9 @@ class EventsModule(Module):
         total = 2 * ir + pad * 1.5 + tw
         sx = x0 + ((x1 - x0) - total) / 2
         icx = sx + ir
-        draw.ellipse((icx - ir, cy - ir, icx + ir, cy + ir), fill=ev.color or th["accent"])
-        draw_icon(draw, ev.icon, (icx, cy), ir * 1.25, "#ffffff")
+        bubble = ev.color or th["accent"]
+        draw.ellipse((icx - ir, cy - ir, icx + ir, cy + ir), fill=bubble)
+        draw_icon(draw, ev.icon, (icx, cy), ir * 1.25, readable_on(bubble))
         draw.text((sx + 2 * ir + pad * 1.5, cy), text, font=f, fill=th["ink"], anchor="lm")
 
 
@@ -345,31 +384,30 @@ class WordModule(Module):
 
 
 class WeekModule(Module):
-    """Vertical week strip, one colour per day, today highlighted."""
+    """Vertical strip of the coming 7 days, today on top, one colour per day."""
     name, default_weight = "week", 1.0
 
     def draw(self, draw, box, ctx):
         x0, y0, x1, y1 = box
         th = ctx.theme
-        colors = [c.strip() for c in str(ctx.cfg.week_colors).split(",")]
-        colors += ["#888888"] * (7 - len(colors))
         today = ctx.now.weekday()
         cell_h = (y1 - y0) / 7
         w = x1 - x0
-        for i in range(7):
+        for i in range(7):  # i = days from today
+            wd = (today + i) % 7
             cy0 = y0 + i * cell_h
-            is_today = i == today
+            is_today = i == 0
             inset = 0 if is_today else w * 0.1
             box_i = (x0 + inset, cy0 + cell_h * 0.06, x1 - inset, cy0 + cell_h * 0.94)
-            col = colors[i]
+            col = day_color(ctx, wd)
             fill = hex_to_rgb(col) if is_today else mix(col, th["bg"], 0.55)
             draw.rounded_rectangle(box_i, radius=min(w, cell_h) * 0.22, fill=fill)
             if is_today:
                 draw.rounded_rectangle(box_i, radius=min(w, cell_h) * 0.22, outline=th["ink"],
                                        width=max(3, int(w * 0.03)))
             bx0, by0, bx1, by1 = box_i
-            txt_col = "#ffffff" if is_today else th["ink"]
-            label = ctx.strings["days_short"][i]
+            txt_col = readable_on(col) if is_today else th["ink"]
+            label = ctx.strings["days_short"][wd]
             icons = ctx.week_icons[i] if ctx.week_icons else []
             if icons:
                 label_box = (bx0, by0 + (by1 - by0) * 0.08, bx1, by0 + (by1 - by0) * 0.55)
