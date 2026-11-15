@@ -3,6 +3,8 @@ import sys
 import tempfile
 import unittest
 from datetime import date, datetime, time
+
+from PIL import Image
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -147,20 +149,22 @@ class SlotAndHiddenTests(unittest.TestCase):
         self.assertTrue(clock._in_half(slot, at(6, 0)))
         self.assertFalse(clock._in_half(slot, at(20, 0)))
 
-    def test_week_start_setting(self):
+    def test_week_strip_shows_upcoming_days(self):
         cfg_events = [{"title": "Gym", "when": "thu", "icon": "mdi:basketball"}]
-        thursday = datetime(2026, 11, 19, 8, 0, tzinfo=TZ)
-        ctx, _ = self._render(thursday, events=cfg_events, week_start="today")
-        self.assertEqual(ctx.week_start, date(2026, 11, 19))
-        self.assertEqual(ctx.week_icons[0][0][0], "mdi:basketball")  # today first
-        ctx, _ = self._render(thursday, events=cfg_events)  # default: monday
-        self.assertEqual(ctx.week_start, date(2026, 11, 16))
+        sunday = datetime(2026, 11, 15, 21, 0, tzinfo=TZ)
+        ctx, _ = self._render(sunday, events=cfg_events)  # default: monday first
+        self.assertEqual(ctx.week_days[0], date(2026, 11, 16))  # 'ma' = tomorrow
+        self.assertEqual(ctx.week_days[2], date(2026, 11, 18))  # 'wo' = upcoming wednesday
+        self.assertEqual(ctx.week_days[6], date(2026, 11, 15))  # 'zo' = today
         self.assertEqual(ctx.week_icons[3][0][0], "mdi:basketball")
-        ctx, _ = self._render(thursday, events=cfg_events, week_start="sunday")
-        self.assertEqual(ctx.week_start, date(2026, 11, 15))
-        self.assertEqual(ctx.week_icons[4][0][0], "mdi:basketball")
-        ctx, _ = self._render(datetime(2026, 11, 15, 8, 0, tzinfo=TZ), week_start="sunday")  # on sunday itself
-        self.assertEqual(ctx.week_start, date(2026, 11, 15))
+        self.assertTrue(all(d >= sunday.date() for d in ctx.week_days))
+        self.assertNotIn("candle", [i for icons in ctx.week_icons for i, _c in icons])  # no past Sint-Maarten
+        ctx, _ = self._render(sunday, week_start="sunday")
+        self.assertEqual(ctx.week_days[0], date(2026, 11, 15))
+        self.assertEqual(ctx.week_days[1], date(2026, 11, 16))
+        ctx, _ = self._render(datetime(2026, 11, 19, 8, 0, tzinfo=TZ), week_start="today")
+        self.assertEqual(ctx.week_days[0], date(2026, 11, 19))
+        self.assertEqual(ctx.week_days[6], date(2026, 11, 25))
 
     def test_readable_text(self):
         from app.render.canvas import readable_on
@@ -200,19 +204,32 @@ class SlotAndHiddenTests(unittest.TestCase):
         self.assertEqual(p._from_history(now, 9)["temperature"], 7)
         self.assertEqual(p._from_history(now, 14)["temperature"], 10)
 
-    def test_hidden_figure_avoids_text(self):
-        from PIL import ImageChops
+    def test_hidden_figure_stays_out_of_elements(self):
+        from PIL import ImageChops, ImageDraw
 
-        base = dict(clock_slots=[], hidden_size=5)
-        for day in range(15, 22):
-            now = datetime(2026, 11, day, 21, 0, tzinfo=TZ)
-            _, on = self._render(now, **base)
-            _, off = self._render(now, **dict(base, hidden_enabled=False))
-            box = ImageChops.difference(on, off).getbbox()
-            region = off.crop(box).convert("L")
-            bgv = region.getpixel((0, 0))
-            busy = sum(1 for v in region.getdata() if abs(v - bgv) > 40) / (region.width * region.height)
-            self.assertLess(busy, 0.25, f"hidden figure covers too much on day {day}")
+        from app.render.canvas import THEMES
+
+        for theme in ("paper", "dark"):
+            for day in range(15, 22):
+                now = datetime(2026, 11, day, 8, 5, tzinfo=TZ)
+                opts = dict(theme=theme, hidden_size=5,
+                            clock_slots=[{"label": "School", "days": "daily", "start": "08:15", "end": "08:25"}])
+                ctx, on = self._render(now, **opts)
+                _, off = self._render(now, **dict(opts, hidden_enabled=False))
+                box = ImageChops.difference(on, off).getbbox()
+                self.assertIsNotNone(box, f"no figure drawn on day {day}")
+                # everything under the figure must be plain background ...
+                region = off.crop(box)
+                bg = Image.new("RGB", region.size, THEMES[theme]["bg"])
+                self.assertIsNone(ImageChops.difference(region, bg).point(lambda v: 255 if v > 4 else 0).getbbox(),
+                                  f"figure covers an element on day {day} ({theme})")
+                # ... and no figure pixel inside the clock circle
+                changed = ImageChops.difference(on, off).convert("L").point(lambda v: 255 if v else 0)
+                for shape, circle in ctx.blocked:
+                    mask = Image.new("L", on.size, 0)
+                    ImageDraw.Draw(mask).ellipse(circle, fill=255)
+                    self.assertIsNone(ImageChops.multiply(changed, mask).getbbox(),
+                                      f"figure inside the clock on day {day} ({theme})")
 
     def test_hidden_same_spot_all_day_and_own_picture(self):
         from PIL import Image
@@ -225,7 +242,7 @@ class SlotAndHiddenTests(unittest.TestCase):
         _, off = self._render(datetime(2026, 11, 16, 8, 0, tzinfo=TZ), **dict(base, hidden_enabled=False))
         self.assertEqual(a.tobytes(), b.tobytes())
         self.assertNotEqual(a.tobytes(), off.tobytes())
-        green = sum(1 for p in a.getdata() if p == (0, 200, 0))
+        green = dict((c, n) for n, c in a.getcolors(maxcolors=1 << 24)).get((0, 200, 0), 0)
         self.assertGreater(green, 1000)  # the picture is drawn
 
 

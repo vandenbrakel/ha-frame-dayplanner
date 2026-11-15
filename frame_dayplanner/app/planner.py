@@ -20,12 +20,12 @@ WEATHER_TTL = 15 * 60
 CALENDAR_TTL = 5 * 60
 
 
-def strip_start(cfg: Config, today: date) -> date:
-    """First day of the week strip: today, or the current week's monday / sunday."""
-    if cfg.week_start == "today":
-        return today
-    first = 6 if cfg.week_start == "sunday" else 0
-    return today - timedelta(days=(today.weekday() - first) % 7)
+def week_days(cfg: Config, today: date) -> list[date]:
+    """Dates for the week strip: weekdays in the configured order (monday /
+    sunday first, or today first), each the next occurrence from today."""
+    first = {"monday": 0, "sunday": 6}.get(cfg.week_start, today.weekday())
+    order = [(first + i) % 7 for i in range(7)]
+    return [today + timedelta(days=(wd - today.weekday()) % 7) for wd in order]
 
 
 class Planner:
@@ -67,8 +67,8 @@ class Planner:
                              self._current.get("state"), len(self._forecast), kind)
         if cfg.calendar_entities and self.ha.available:
             # covers the week strip (which may start before today) and the next days
-            week_start = datetime.combine(strip_start(cfg, now.date()), datetime.min.time(), now.tzinfo)
-            key = (tuple(cfg.calendar_entities), week_start, now.date())
+            week_start = datetime.combine(now.date(), datetime.min.time(), now.tzinfo)  # today + 7 days
+            key = (tuple(cfg.calendar_entities), week_start)
             if force or key != self._calendar_key or mono - self._calendar_at > CALENDAR_TTL:
                 items: list[dict] = []
                 for ent in cfg.calendar_entities:
@@ -150,10 +150,10 @@ class Planner:
         strings = t(cfg.language)
         tz = now.tzinfo
         events = events_for_day(cfg, now.date(), tz, self._calendar)
-        week_start = strip_start(cfg, now.date())
+        days = week_days(cfg, now.date())
         week_icons = []
         for i in range(7):
-            d = week_start + timedelta(days=i)
+            d = days[i]
             evs = events_for_day(cfg, d, tz, self._calendar)
             week_icons.append([(e.icon, e.color) for e in evs if e.icon])
         slots = []
@@ -177,7 +177,7 @@ class Planner:
             slots=slots,
             seed=seed,
             week_icons=week_icons,
-            week_start=week_start,
+            week_days=days,
             sum_text=puzzles.make_sum(cfg, seed),
             word=word,
             word_sounds=puzzles.sounds(word),

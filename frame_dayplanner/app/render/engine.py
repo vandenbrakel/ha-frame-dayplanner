@@ -9,7 +9,7 @@ from pathlib import Path
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 from ..config import Config
 from ..events import Event
@@ -28,7 +28,8 @@ class RenderContext:
     events: list[Event] = field(default_factory=list)
     slots: list[Event] = field(default_factory=list)
     week_icons: list[list[tuple[str, str]]] = field(default_factory=list)
-    week_start: date | None = None
+    week_days: list[date] = field(default_factory=list)
+    blocked: list[tuple[str, tuple]] = field(default_factory=list)  # areas the hidden figure must avoid
     sum_text: str = ""
     word: str = ""
     word_sounds: list[str] = field(default_factory=list)
@@ -122,39 +123,65 @@ def _hidden_sprite(ctx: RenderContext, rng: random.Random, size: int) -> Image.I
 
 
 def draw_hidden(img: Image.Image, ctx: RenderContext) -> None:
-    """Hide one (or more) small figures somewhere; same spot all day."""
+    """Hide one (or more) small figures in empty space; same spot all day.
+
+    The figure never overlaps an element: anything drawn (text, tiles,
+    panels) or registered in ctx.blocked (e.g. the clock face) is off-limits.
+    When no spot is big enough the figure shrinks a little; if it still
+    doesn't fit anywhere it is left out.
+    """
     W, H = img.size
     unit = min(W, H)
     size = max(16, int(unit * float(ctx.cfg.hidden_size) / 100))
     rng = random.Random(f"hidden-{ctx.seed}")
-    margin = int(unit * 0.03)
-    for _ in range(max(0, int(ctx.cfg.hidden_count))):
-        sprite = _hidden_sprite(ctx, rng, size)
-        if sprite is None:
-            return
-        sprite = sprite.rotate(rng.uniform(-35, 35), resample=Image.BICUBIC, expand=True)
-        if rng.random() < 0.5:
-            sprite = sprite.transpose(Image.FLIP_LEFT_RIGHT)
-        x, y = _hiding_spot(img, ctx, sprite, rng, margin)
-        img.paste(sprite, (x, y), sprite)
+    occupied = _occupied_mask(img, ctx)
+    for n in range(max(0, int(ctx.cfg.hidden_count))):
+        angle, flip = rng.uniform(-25, 25), rng.random() < 0.5
+        for factor in (1.0, 0.8, 0.65, 0.5):
+            sprite = _hidden_sprite(ctx, random.Random(f"hidden-sprite-{ctx.seed}-{n}"), int(size * factor))
+            if sprite is None:
+                return
+            sprite = sprite.rotate(angle, resample=Image.BICUBIC, expand=True)
+            if flip:
+                sprite = sprite.transpose(Image.FLIP_LEFT_RIGHT)
+            spot = _free_spot(occupied, sprite, rng, unit)
+            if spot:
+                img.paste(sprite, spot, sprite)
+                ImageDraw.Draw(occupied).rectangle(
+                    (spot[0], spot[1], spot[0] + sprite.width, spot[1] + sprite.height), fill=255)
+                break
+        else:
+            _LOGGER.debug("No free spot for the hidden figure")
 
 
-def _hiding_spot(img: Image.Image, ctx: RenderContext, sprite: Image.Image, rng: random.Random,
-                 margin: int) -> tuple[int, int]:
-    """Pick a spot that doesn't cover text: try random spots, keep the calmest."""
-    W, H = img.size
-    small = img.convert("L").resize((W // 8, H // 8))
-    bg = Image.new("RGB", (1, 1), ctx.theme["bg"]).convert("L").getpixel((0, 0))
-    candidates = []
-    for _ in range(60):
-        x = rng.randint(margin, max(margin, W - sprite.width - margin))
-        y = rng.randint(margin, max(margin, H - sprite.height - margin))
-        crop = small.crop((x // 8, y // 8, (x + sprite.width) // 8 + 1, (y + sprite.height) // 8 + 1))
-        busy = sum(1 for p in crop.getdata() if abs(p - bg) > 40) / max(1, crop.width * crop.height)
-        candidates.append((busy, x, y))
-    candidates.sort(key=lambda c: c[0])
-    _busy, x, y = rng.choice(candidates[:4])  # one of the calmest, so it still moves around
-    return x, y
+def _occupied_mask(img: Image.Image, ctx: RenderContext) -> Image.Image:
+    """255 where something is drawn or blocked, 0 where it's plain background."""
+    bg = Image.new("RGB", img.size, ctx.theme["bg"])
+    diff = ImageChops.difference(img, bg).convert("L")
+    mask = diff.point(lambda v: 255 if v > 4 else 0)
+    d = ImageDraw.Draw(mask)
+    for shape, box in ctx.blocked:
+        (d.ellipse if shape == "ellipse" else d.rectangle)(box, fill=255)
+    return mask
+
+
+def _free_spot(occupied: Image.Image, sprite: Image.Image, rng: random.Random, unit: int):
+    """Random top-left position where the sprite (plus a small gap) only covers background."""
+    F = 12  # work on a reduced grid, fast enough for 4K
+    W, H = occupied.size
+    small = occupied.resize((W // F, H // F), Image.BOX).point(lambda v: 255 if v else 0)
+    gap = max(1, int(unit * 0.008) // F + 1)
+    k = max(sprite.width, sprite.height) // F + 1 + 2 * gap
+    k += 1 - k % 2  # odd kernel
+    grown = small.filter(ImageFilter.MaxFilter(k))  # 0 = a k*k window around it is free
+    edge = k // 2 + max(1, int(unit * 0.012) // F)
+    sw, sh = small.size
+    free = [(x, y) for y in range(edge, sh - edge) for x in range(edge, sw - edge)
+            if grown.getpixel((x, y)) == 0]
+    if not free:
+        return None
+    cx, cy = rng.choice(free)
+    return int(cx * F + F / 2 - sprite.width / 2), int(cy * F + F / 2 - sprite.height / 2)
 
 
 def to_jpeg(img: Image.Image, quality: int = 90) -> bytes:

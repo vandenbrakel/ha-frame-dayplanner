@@ -64,7 +64,7 @@ configuration:
     description: How many minutes before a slot the label shows the countdown ("nog 12 min").
   hidden_enabled:
     name: Hidden figure
-    description: Hide a small figure somewhere on the planner, in a new spot every day. Can you find it?
+    description: Hide a small figure in an empty spot (never on text or tiles), a new spot every day. Can you find it?
   hidden_icons:
     name: Hidden figure icons
     description: Comma-separated mdi icons; one is picked every day.
@@ -109,7 +109,7 @@ configuration:
     description: Maximum number of events shown in the events module.
   week_start:
     name: Week strip starts on
-    description: monday or sunday (the current week, today highlighted), or today (today always on top, then the next 6 days).
+    description: Order of the week strip. monday or sunday first (every tile shows the next occurrence of that day, today highlighted), or today on top.
   week_colors:
     name: Week colours
     description: Seven colours (monday first) for the week strip and the day name.

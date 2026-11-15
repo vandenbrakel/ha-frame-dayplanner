@@ -135,6 +135,7 @@ class ClockModule(Module):
 
         # face
         draw.ellipse((cx - r, cy - r, cx + r, cy + r), fill=th["bg"], outline=ink, width=max(2, int(r * 0.03)))
+        ctx.blocked.append(("ellipse", (cx - outer, cy - outer, cx + outer, cy + outer)))
         for slot in minute_slots:
             self._minute_band(draw, cx, cy, r, slot, ctx)
         if ring:
@@ -408,18 +409,20 @@ class WordModule(Module):
 
 
 class WeekModule(Module):
-    """Vertical strip of 7 days (week_start: monday, sunday or today on top),
-    one colour per day, today highlighted."""
+    """Vertical strip of the coming 7 days, one colour per day, today highlighted.
+
+    The order follows week_start (monday / sunday first, or today on top);
+    every tile shows the next occurrence of that weekday, so on sunday the
+    'ma' tile is tomorrow."""
     name, default_weight = "week", 1.0
 
     def draw(self, draw, box, ctx):
         x0, y0, x1, y1 = box
         th = ctx.theme
-        first = ctx.week_start or ctx.now.date()
+        days = ctx.week_days or [ctx.now.date() + timedelta(days=i) for i in range(7)]
         cell_h = (y1 - y0) / 7
         w = x1 - x0
-        for i in range(7):
-            day = first + timedelta(days=i)
+        for i, day in enumerate(days):
             wd = day.weekday()
             cy0 = y0 + i * cell_h
             is_today = day == ctx.now.date()

@@ -48,7 +48,7 @@ In `modules`:
 | `events`  | Today's events, highlighted ones big and in capitals |
 | `sum`     | A sum, e.g. `3 + 4 = ?` |
 | `word`    | A klankzuiver word, e.g. `vis` |
-| `week`    | Week strip, one colour per day, with event icons. `week_start`: `monday` (default), `sunday`, or `today` (today on top, then the next 6 days) |
+| `week`    | The coming 7 days, one colour per day, with event icons. `week_start`: `monday` (default) or `sunday` first, every tile showing the next occurrence of that day; or `today` on top |
 | `spacer`, `line` | Empty space or a thin line |
 
 Portrait default:
@@ -93,7 +93,7 @@ afternoon/evening ones. So a slot at 20:15 never shows up at 08:15.
 
 ## Hidden figure
 
-Every day a small figure is hidden somewhere on the planner (a new spot each
+Every day a small figure is hidden in an empty spot on the planner (never on text, tiles or the clock) (a new spot each
 day, or each hour/session with `puzzle_refresh`). By default it is one of the
 `hidden_icons`. To use your own picture, for example a drawing by your child, put a
 PNG with a transparent background in `/share/dayplanner/` (via the Samba or

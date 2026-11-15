@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.2
+
+- Week strip always shows the upcoming days: tiles keep the monday / sunday order,
+  each shows the next occurrence of that day (no past days)
+- Hidden figure only hides in empty space, never on text, tiles, panels or the clock
+
 ## 0.4.1
 
 - Slot on the minute scale runs green -> orange -> red to show the time left (`clock_slot_gradient`)
