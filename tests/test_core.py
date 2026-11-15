@@ -74,6 +74,15 @@ class PuzzleTests(unittest.TestCase):
             self.assertTrue(all(0 <= n <= 10 for n in nums), s)
             self.assertTrue(0 <= eval(expr) <= 10, s)
 
+    def test_sums_never_use_zero(self):
+        for opts in ({}, {"sum_operations": "+,-", "sum_terms": 3, "sum_max": 20}, {"sum_operations": "x,:"},
+                     {"sum_operations": "-", "sum_max": 5}):
+            cfg = cfg_with(**opts)
+            for i in range(500):
+                expr = puzzles.make_sum(cfg, str(i)).split("=")[0]
+                nums = [int(x) for x in expr.replace("+", " ").replace("-", " ").replace("x", " ").replace(":", " ").split()]
+                self.assertNotIn(0, nums, expr)
+
     def test_sum_stable_per_day(self):
         cfg = cfg_with()
         now = datetime(2026, 11, 16, 8, 0, tzinfo=TZ)

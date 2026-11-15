@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.2
+
+- Sums never use 0 (no more `9 + 0`), numbers are spread evenly, tables start at 2
+
 ## 0.7.1
 
 - Events with `leave_before` also get the minute band (from the time to leave until the start) and a

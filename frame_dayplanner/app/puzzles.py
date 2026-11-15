@@ -92,32 +92,48 @@ def make_sum(cfg, seed: str) -> str:
     max_val = max(2, int(cfg.sum_max))
     terms = max(2, min(4, int(cfg.sum_terms)))
 
-    for _ in range(200):
+    # never use 0 as a number (9 + 0 is too easy); factors 2+ when the table allows it
+    nums, ops_used, result = [1, 1], ["+"], 2  # fallback for impossible settings
+    for _ in range(500):
         op = rng.choice(ops)
         if op in ("x", ":"):
             # multiplication tables: factors up to sum_max (max 10), product unlimited
             f = min(max_val, 10)
-            a, b = rng.randint(1, f), rng.randint(1, f)
-            nums, result = ([a, b], a * b) if op == "x" else ([a * b, b], a)
-            ops_used = [op]
+            low = 2 if f >= 3 else 1
+            a, b = rng.randint(low, f), rng.randint(low, f)
+            nums, ops_used, result = ([a, b], [op], a * b) if op == "x" else ([a * b, b], [op], a)
+            break
+        plus_minus = [x for x in ops if x in "+-"] or ["+"]
+        first_op = rng.choice(plus_minus)
+        if first_op == "+" and max_val >= 2:
+            # every pair a + b <= max is equally likely (not mostly '+ 1')
+            while True:
+                a, b = rng.randint(1, max_val - 1), rng.randint(1, max_val - 1)
+                if a + b <= max_val:
+                    break
+            total, cand = a + b, [a]
         else:
-            nums, ops_used = [rng.randint(0, max_val)], []
-            value = nums[0]
-            for _i in range(terms - 1):
-                o = rng.choice([x for x in ops if x in "+-"] or ["+"])
-                if o == "+":
-                    n = rng.randint(0, max(0, max_val - value))
-                    value += n
-                else:
-                    n = rng.randint(0, value)
-                    value -= n
-                nums.append(n)
-                ops_used.append(o)
-            result = value
-        # avoid trivial "0 + 0" style sums when possible
-        if max_val >= 4 and (sum(1 for n in nums if n == 0) > 0 and rng.random() < 0.8):
-            continue
-        break
+            total, cand = None, [rng.randint(1, max_val)]
+        cand_ops = []
+        value = cand[0]
+        for i in range(terms - 1):
+            o = first_op if i == 0 else rng.choice(plus_minus)
+            if o == "+" and i == 0 and total:
+                n = total - value
+                value = total
+            elif o == "+" and value < max_val:
+                n = rng.randint(1, max_val - value)
+                value += n
+            elif o == "-" and value >= 1:
+                n = rng.randint(1, value)
+                value -= n
+            else:
+                break
+            cand.append(n)
+            cand_ops.append(o)
+        if len(cand) == terms:
+            nums, ops_used, result = cand, cand_ops, value
+            break
 
     parts = [str(nums[0])]
     for o, n in zip(ops_used, nums[1:]):
