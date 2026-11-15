@@ -16,6 +16,16 @@ THEMES = {
               "panel": "#f2f2f2", "accent": "#e0453a", "hour": "#d6423a", "minute": "#2f5fb8"},
     "dark": {"bg": "#1c1e23", "ink": "#f1ede4", "muted": "#9a968e", "line": "#3a3d44",
              "panel": "#272a31", "accent": "#ff6b5e", "hour": "#ff6b5e", "minute": "#6ea0ff"},
+    # textured themes ('texture' = style in render/texture.py)
+    "paper-texture": {"bg": "#f3ebd9", "ink": "#2b2622", "muted": "#8a7e6f", "line": "#d8cab0",
+                      "panel": "#e9dcc3", "accent": "#e0453a", "hour": "#d6423a", "minute": "#2f5fb8",
+                      "texture": "paper"},
+    "kraft": {"bg": "#c9a57c", "ink": "#2e2014", "muted": "#5f4630", "line": "#a98559",
+              "panel": "#d8bb95", "accent": "#b8322a", "hour": "#b8322a", "minute": "#1f4f99",
+              "texture": "kraft"},
+    "chalkboard": {"bg": "#2f3d36", "ink": "#f2f0e6", "muted": "#a9b6ad", "line": "#4a5a51",
+                   "panel": "#3a4a42", "accent": "#ff8a7a", "hour": "#ff8a7a", "minute": "#8ec5ff",
+                   "texture": "chalk"},
 }
 
 
@@ -189,3 +199,19 @@ def readable_on(background, dark="#2b2622", light="#ffffff") -> str:
     lb = _luminance(bg)
     contrast = lambda fg: (max(lb, _luminance(hex_to_rgb(fg))) + 0.05) / (min(lb, _luminance(hex_to_rgb(fg))) + 0.05)
     return light if contrast(light) >= contrast(dark) else dark
+
+
+def contrast(c1, c2) -> float:
+    a = _luminance(hex_to_rgb(c1) if isinstance(c1, str) else c1)
+    b = _luminance(hex_to_rgb(c2) if isinstance(c2, str) else c2)
+    return (max(a, b) + 0.05) / (min(a, b) + 0.05)
+
+
+def visible_on(color, bg, ink, min_ratio: float = 1.7):
+    """Move a colour towards the ink colour until it stands out from the background."""
+    c = hex_to_rgb(color) if isinstance(color, str) else color
+    for step in range(1, 8):
+        if contrast(c, bg) >= min_ratio:
+            break
+        c = mix(color, ink, 0.1 * step)
+    return "#%02x%02x%02x" % tuple(c)

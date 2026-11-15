@@ -92,6 +92,10 @@ def render(ctx: RenderContext) -> Image.Image:
             draw_hidden(img, ctx)
         except Exception:
             _LOGGER.exception("Hidden figure failed")
+    if ctx.theme.get("texture"):  # last, so the figure search above still sees a flat background
+        from .texture import apply
+
+        img = apply(img, ctx.theme["texture"])
     return img
 
 
@@ -200,6 +204,7 @@ def _free_spot(occupied: Image.Image, sprite: Image.Image, rng: random.Random, u
 
 
 def to_jpeg(img: Image.Image, quality: int = 90) -> bytes:
+    """quality 90 for flat themes; textured frames use 85 (grain is expensive to store)."""
     buf = io.BytesIO()
     img.save(buf, "JPEG", quality=quality, optimize=True)
     return buf.getvalue()

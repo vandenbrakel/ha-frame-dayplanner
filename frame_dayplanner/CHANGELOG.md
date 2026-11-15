@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.0
+
+- New themes with a real texture: `paper-texture` (paper grain, fibres, soft clouds), `kraft`
+  (brown paper) and `chalkboard`. The original `paper` theme is unchanged
+- Day colours that would vanish into the background (e.g. dark weekend colours on a dark theme)
+  are lightened automatically
+
 ## 0.7.3
 
 - Hidden figure follows the theme by default (drawn in the theme's ink colour); the old default red

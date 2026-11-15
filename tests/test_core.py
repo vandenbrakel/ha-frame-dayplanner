@@ -274,6 +274,24 @@ class SlotAndHiddenTests(unittest.TestCase):
         self.assertFalse(clock._minute_mode(leave[0], datetime(2026, 11, 16, 12, 30, tzinfo=TZ)))
         self.assertFalse(clock._minute_mode(leave[0], datetime(2026, 11, 16, 14, 0, tzinfo=TZ)))
 
+    def test_textured_themes(self):
+        from app.render.canvas import THEMES, contrast
+        from app.render.modules import day_color
+
+        for theme in ("paper-texture", "kraft", "chalkboard"):
+            ctx, img = self._render(datetime(2026, 11, 15, 8, 5, tzinfo=TZ), theme=theme)
+            self.assertEqual(img.size, (1080, 1920))
+            # textured: the background is not one flat colour any more
+            corner = img.crop((0, 0, 200, 200)).convert("L")
+            self.assertGreater(len(corner.getcolors(maxcolors=4096) or []), 10, theme)
+            # stable: same frame twice (texture is seeded, not random per render)
+            _, again = self._render(datetime(2026, 11, 15, 8, 5, tzinfo=TZ), theme=theme)
+            self.assertEqual(img.tobytes(), again.tobytes())
+        # weekend tiles stay visible on dark backgrounds
+        for theme in ("dark", "chalkboard"):
+            ctx, _ = self._render(datetime(2026, 11, 15, 8, 5, tzinfo=TZ), theme=theme)
+            self.assertGreaterEqual(contrast(day_color(ctx, 6), THEMES[theme]["bg"]), 1.6)
+
     def test_readable_text(self):
         from app.render.canvas import readable_on
 

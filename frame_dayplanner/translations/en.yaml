@@ -19,7 +19,7 @@ configuration:
     description: Language of day/month names and weather labels.
   theme:
     name: Theme
-    description: paper (warm), white or dark.
+    description: paper (warm), paper-texture (real paper look), kraft (brown paper), chalkboard, white or dark.
   day_background:
     name: Day colour behind day name
     description: Put the colour of today (from week colours) behind the big day name.

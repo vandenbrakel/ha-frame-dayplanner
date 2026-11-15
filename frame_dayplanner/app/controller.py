@@ -116,7 +116,8 @@ class Controller:
         await self.planner.refresh(cfg, when, force=force_refresh)
         ctx = self.planner.build(cfg, when, self.state.get("session", ""))
         img = await asyncio.to_thread(render, ctx)
-        return await asyncio.to_thread(to_jpeg, img)
+        quality = 85 if ctx.theme.get("texture") else 90
+        return await asyncio.to_thread(to_jpeg, img, quality)
 
     # ------------------------------------------------------------ TV session
     async def _start_session(self, reason: str) -> bool:

@@ -9,7 +9,7 @@ import math
 from datetime import timedelta
 
 from .canvas import (bubble_color, draw_icon, draw_text_centered, fit_size, font, hex_to_rgb, mix,
-                     readable_on, text_size)
+                     readable_on, text_size, visible_on)
 
 WEATHER_ICONS = {
     "clear-night": ("weather-night", "#5b6c9a"),
@@ -47,9 +47,10 @@ def gradient(fraction: float):
 
 
 def day_color(ctx, weekday: int) -> str:
+    """Colour of a weekday, lightened/darkened when it would vanish into the background."""
     colors = [c.strip() for c in str(ctx.cfg.week_colors).split(",") if c.strip()]
     colors += ["#888888"] * (7 - len(colors))
-    return colors[weekday]
+    return visible_on(colors[weekday], ctx.theme["bg"], ctx.theme["ink"])
 
 
 class Module:

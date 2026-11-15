@@ -1,5 +1,5 @@
 name: Frame Dayplanner
-version: "0.7.3"
+version: "0.8.0"
 slug: frame_dayplanner
 description: Kid-friendly day planner (clock, weather, events, sums, words) pushed to a Samsung The Frame in art mode.
 url: https://github.com/vandenbrakel/ha-frame-dayplanner
@@ -106,7 +106,7 @@ schema:
   resolution: list(4k|1080p)
   matte: str
   language: list(nl|en)
-  theme: list(paper|white|dark)
+  theme: list(paper|paper-texture|kraft|chalkboard|white|dark)
   day_background: bool
   only_in_art_mode: bool
   restore_previous_art: bool
