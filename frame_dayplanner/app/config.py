@@ -50,6 +50,7 @@ DEFAULTS: dict = {
     "clock_minute_numbers": False,
     "clock_event_arcs": True,
     "clock_slots": [],
+    "clock_slot_gradient": True,
     "clock_slot_countdown_minutes": 60,
     "hidden_enabled": True,
     "hidden_icons": "mdi:owl, mdi:ladybug, mdi:penguin, mdi:snail, mdi:bee, mdi:duck",

@@ -36,6 +36,16 @@ def rounded_panel(draw, box, ctx, fill=None, radius=None):
     draw.rounded_rectangle(box, radius=r, fill=fill or ctx.theme["panel"])
 
 
+GRADIENT = ["#3a9b4a", "#f08a24", "#e0453a"]  # green -> orange -> red
+
+
+def gradient(fraction: float):
+    """Colour on the green -> orange -> red scale (0 = start, 1 = end)."""
+    f = max(0.0, min(1.0, fraction)) * (len(GRADIENT) - 1)
+    i = min(int(f), len(GRADIENT) - 2)
+    return mix(GRADIENT[i], GRADIENT[i + 1], f - i)
+
+
 def day_color(ctx, weekday: int) -> str:
     colors = [c.strip() for c in str(ctx.cfg.week_colors).split(",") if c.strip()]
     colors += ["#888888"] * (7 - len(colors))
@@ -203,18 +213,30 @@ class ClockModule(Module):
         return timedelta(0) < slot.start - ctx.now <= limit
 
     def _minute_band(self, draw, cx, cy, r, slot, ctx):
-        color = slot.color or ctx.theme["accent"]
         rb = r * 0.97
         width = int(r * 0.13)
         bb = (cx - rb, cy - rb, cx + rb, cy + rb)
         a0 = slot.start.minute * 6 - 90
         minutes = min(60.0, max(0.5, (self._end(slot) - slot.start).total_seconds() / 60))
-        a1 = a0 + minutes * 6
-        draw.arc(bb, a0, a1, fill=color, width=width)
-        # the part that has already passed fades out
+        passed = 0.0
         if ctx.now > slot.start:
             passed = min(minutes, (ctx.now - slot.start).total_seconds() / 60)
-            draw.arc(bb, a0, a0 + passed * 6, fill=mix(color, ctx.theme["bg"], 0.6), width=width)
+        # small segments so the colour can run green -> orange -> red
+        steps = max(2, int(minutes * 4))
+        for k in range(steps):
+            m0, m1 = minutes * k / steps, minutes * (k + 1) / steps
+            color = self._slot_color(slot, ctx, (m0 + m1) / 2 / minutes)
+            if m1 <= passed:  # the part that has already passed fades out
+                color = mix(color, ctx.theme["bg"], 0.6)
+            overlap = 0.4 if k < steps - 1 else 0
+            draw.arc(bb, a0 + m0 * 6, a0 + m1 * 6 + overlap, fill=color, width=width)
+
+    @staticmethod
+    def _slot_color(slot, ctx, fraction: float):
+        """Colour of a slot at fraction 0..1 of its duration."""
+        if not ctx.cfg.clock_slot_gradient:
+            return slot.color or ctx.theme["accent"]
+        return gradient(fraction)
 
     def _legend_row(self, draw, box, slot, ctx):
         x0, y0, x1, y1 = box
@@ -223,14 +245,15 @@ class ClockModule(Module):
         now = ctx.now
         active = slot.start <= now < self._end(slot)
         color = slot.color or th["accent"]
+        if active and ctx.cfg.clock_slot_gradient:  # pill follows the colour of the current minute
+            total = (self._end(slot) - slot.start).total_seconds()
+            color = self._slot_color(slot, ctx, (now - slot.start).total_seconds() / total)
         on_color = readable_on(color)
         text = f"{slot.start:%H:%M}"
         if slot.end and slot.end > slot.start:
             text += f"-{slot.end:%H:%M}"
         text += f"  {slot.title}"
-        if active:
-            text += f"  {ctx.strings['now']}"
-        elif self._upcoming(slot, ctx):
+        if not active and self._upcoming(slot, ctx):
             n = math.ceil((slot.start - now).total_seconds() / 60)
             text += f"  ({ctx.strings['in_minutes'].format(n=n)})"
         pad = h * 0.12

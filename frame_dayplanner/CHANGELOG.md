@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1
+
+- Slot on the minute scale runs green -> orange -> red to show the time left (`clock_slot_gradient`)
+- Removed "nu!" from the slot label
+
 ## 0.4.0
 
 - `week_start` setting for the week strip: monday (default), sunday or today on top

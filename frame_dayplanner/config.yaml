@@ -1,5 +1,5 @@
 name: Frame Dayplanner
-version: "0.4.0"
+version: "0.4.1"
 slug: frame_dayplanner
 description: Kid-friendly day planner (clock, weather, events, sums, words) pushed to a Samsung The Frame in art mode.
 url: https://github.com/vandenbrakel/ha-frame-dayplanner
@@ -58,6 +58,7 @@ options:
       end: "08:25"
       icon: mdi:school
       color: "#e0453a"
+  clock_slot_gradient: true
   clock_slot_countdown_minutes: 60
   hidden_enabled: true
   hidden_icons: "mdi:owl, mdi:ladybug, mdi:penguin, mdi:snail, mdi:bee, mdi:duck"
@@ -130,6 +131,7 @@ schema:
       end: match(^\d{1,2}:\d{2}$)?
       icon: str?
       color: str?
+  clock_slot_gradient: bool
   clock_slot_countdown_minutes: int(1,60)
   hidden_enabled: bool
   hidden_icons: str

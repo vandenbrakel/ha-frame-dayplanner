@@ -8,7 +8,6 @@ STRINGS = {
                    "augustus", "september", "oktober", "november", "december"],
         "periods": ["ochtend", "middag", "avond"],
         "in_minutes": "nog {n} min",
-        "now": "nu!",
     },
     "en": {
         "days": ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"],
@@ -17,7 +16,6 @@ STRINGS = {
                    "august", "september", "october", "november", "december"],
         "periods": ["morning", "afternoon", "evening"],
         "in_minutes": "in {n} min",
-        "now": "now!",
     },
 }
 
