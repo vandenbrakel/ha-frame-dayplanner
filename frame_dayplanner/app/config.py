@@ -5,7 +5,7 @@ import json
 import os
 import re
 from dataclasses import dataclass, field
-from datetime import time
+from datetime import date, time
 from pathlib import Path
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
@@ -162,6 +162,13 @@ def parse_time(value: str | None) -> time | None:
     return time(h, mi)
 
 
+def _day(name: str) -> int:
+    try:
+        return DAY_ALIASES[name]
+    except KeyError:
+        raise ValueError(f"unknown day '{name}'") from None
+
+
 def parse_days(value: str) -> set[int]:
     """'mon-fri', 'ma,wo,vr', 'daily', 'weekend' -> set of weekday ints."""
     value = (value or "").strip().lower()
@@ -177,7 +184,7 @@ def parse_days(value: str) -> set[int]:
             continue
         if "-" in part:
             a, b = part.split("-", 1)
-            ia, ib = DAY_ALIASES[a], DAY_ALIASES[b]
+            ia, ib = _day(a), _day(b)
             i = ia
             while True:
                 days.add(i)
@@ -185,8 +192,57 @@ def parse_days(value: str) -> set[int]:
                     break
                 i = (i + 1) % 7
         else:
-            days.add(DAY_ALIASES[part])
+            days.add(_day(part))
     return days
+
+
+_NTH = {"1": 1, "1st": 1, "first": 1, "eerste": 1, "2": 2, "2nd": 2, "second": 2, "tweede": 2,
+        "3": 3, "3rd": 3, "third": 3, "derde": 3, "4": 4, "4th": 4, "fourth": 4, "vierde": 4,
+        "last": -1, "laatste": -1}
+
+
+def parse_monthly(part: str):
+    """'monthly 15' -> ('day', 15); 'monthly 1st wed' / 'monthly last fri' -> ('nth', n, weekday).
+    Returns None when part is not a monthly rule; raises ValueError when it is but invalid."""
+    m = re.fullmatch(r"(?:monthly|maandelijks)\s+(.+)", part.strip().lower())
+    if not m:
+        return None
+    rest = m.group(1).split()
+    if len(rest) == 1 and rest[0].isdigit():
+        day = int(rest[0])
+        if not 1 <= day <= 31:
+            raise ValueError(f"day of month must be 1-31, not {day}")
+        return ("day", day)
+    if len(rest) == 2 and rest[0] in _NTH:
+        return ("nth", _NTH[rest[0]], _day(rest[1]))
+    raise ValueError(f"cannot understand '{part}', use e.g. 'monthly 15' or 'monthly 1st wed'")
+
+
+def monthly_matches(rule, d: date) -> bool:
+    import calendar
+
+    last_day = calendar.monthrange(d.year, d.month)[1]
+    if rule[0] == "day":
+        return d.day == min(rule[1], last_day)  # 31 in a short month = last day
+    _, n, weekday = rule
+    if d.weekday() != weekday:
+        return False
+    if n == -1:
+        return d.day + 7 > last_day
+    return (d.day - 1) // 7 + 1 == n
+
+
+def validate_when(value: str) -> str:
+    """Check an event 'when' (weekdays, YYYY-MM-DD, MM-DD, a..b, joined with ';')."""
+    for part in re.split(r"\s*;\s*", value.strip().lower()):
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}(\s*\.\.\s*\d{4}-\d{2}-\d{2})?", part):
+            for d in re.findall(r"\d{4}-\d{2}-\d{2}", part):
+                date.fromisoformat(d)
+        elif m := re.fullmatch(r"(\d{2})-(\d{2})", part):
+            date(2024, int(m.group(1)), int(m.group(2)))  # 2024: allows 02-29
+        elif parse_monthly(part) is None:
+            parse_days(part)
+    return value
 
 
 def parse_layout(columns: list[dict]) -> list[Column]:
@@ -210,40 +266,49 @@ def parse_layout(columns: list[dict]) -> list[Column]:
 
 
 def load_config(path: Path = OPTIONS_FILE) -> Config:
+    options = json.loads(path.read_text()) if path.exists() else {}
+    return build_config(options)
+
+
+def build_config(options: dict, strict: bool = False) -> Config:
+    """Options dict -> Config.  With strict, invalid entries raise ValueError
+    (used when saving from the settings page); otherwise they are skipped."""
     raw = dict(DEFAULTS)
-    if path.exists():
-        raw.update({k: v for k, v in json.loads(path.read_text()).items() if v is not None})
+    raw.update({k: v for k, v in (options or {}).items() if v is not None and k in DEFAULTS})
     cfg = Config(raw=raw)
-    for w in raw.get("schedule") or []:
-        start, end = parse_time(w.get("start")), parse_time(w.get("end"))
-        if start and end:
-            cfg.schedule.append(ScheduleWindow(parse_days(w.get("days", "daily")), start, end))
-    for e in raw.get("events") or []:
+    errors: list[str] = []
+
+    def guard(where: str, fn):
+        try:
+            return fn()
+        except (ValueError, KeyError) as exc:
+            errors.append(f"{where}: {exc}")
+            return None
+
+    for i, w in enumerate(raw.get("schedule") or [], 1):
+        item = guard(f"schedule {i}", lambda w=w: ScheduleWindow(
+            parse_days(w.get("days", "daily")), parse_time(w.get("start")), parse_time(w.get("end"))))
+        if item and item.start and item.end:
+            cfg.schedule.append(item)
+    for i, e in enumerate(raw.get("events") or [], 1):
         if not e.get("title"):
             continue
-        cfg.events.append(
-            EventRule(
-                title=e["title"],
-                when=str(e.get("when", "daily")),
-                icon=e.get("icon") or "",
-                start=parse_time(e.get("start")),
-                end=parse_time(e.get("end")),
-                highlight=bool(e.get("highlight", False)),
-                color=e.get("color") or "",
-            )
-        )
+        item = guard(f"event '{e.get('title')}'", lambda e=e: EventRule(
+            title=e["title"], when=validate_when(str(e.get("when", "daily"))), icon=e.get("icon") or "",
+            start=parse_time(e.get("start")), end=parse_time(e.get("end")),
+            highlight=bool(e.get("highlight", False)), color=e.get("color") or ""))
+        if item:
+            cfg.events.append(item)
     for sl in raw.get("clock_slots") or []:
-        start, end = parse_time(sl.get("start")), parse_time(sl.get("end"))
-        if not start:
-            continue
-        cfg.slots.append(
-            ClockSlot(
-                label=sl.get("label") or "",
-                days=parse_days(sl.get("days", "daily")),
-                start=start,
-                end=end or start,
-                color=sl.get("color") or "",
-                icon=sl.get("icon") or "",
-            )
-        )
+        def make(sl=sl):
+            start, end = parse_time(sl.get("start")), parse_time(sl.get("end"))
+            if not start:
+                raise ValueError("start time missing")
+            return ClockSlot(label=sl.get("label") or "", days=parse_days(sl.get("days", "daily")),
+                             start=start, end=end or start, color=sl.get("color") or "", icon=sl.get("icon") or "")
+        item = guard(f"clock slot '{sl.get('label', '')}'", make)
+        if item:
+            cfg.slots.append(item)
+    if strict and errors:
+        raise ValueError("; ".join(errors))
     return cfg

@@ -8,6 +8,15 @@ Every minute a fresh image is rendered on your Home Assistant server and
 uploaded to the TV. When the schedule (or a test run) ends, the art that was
 showing before is restored and the uploaded planner images are deleted.
 
+## Settings
+
+The easiest way to configure everything is the **Settings** tab on the
+Dayplanner page (sidebar). It has an icon search with previews (Dutch words such
+as *fiets* or *zwemmen* work too), day buttons, time and date pickers, dropdowns
+with your weather and calendar entities, and colour pickers. The preview updates
+while you edit; **Save** stores the settings in the add-on configuration and
+applies them right away. The *Configuration* tab and *Edit in YAML* keep working.
+
 ## First start
 
 1. Give the TV a fixed IP address in your router.
@@ -113,6 +122,9 @@ events:
     highlight: true          # big, in capitals
   - title: Spelen met Fedde
     when: 2026-11-20         # once
+  - title: Bibliotheek
+    when: monthly 1st wed    # every month: 'monthly 15', 'monthly 2nd tue', 'monthly last fri'
+    icon: mdi:book-open-variant
   - title: Verjaardag oma
     when: 03-14              # every year (MM-DD)
     icon: mdi:cake-variant
@@ -120,7 +132,9 @@ events:
     when: 2026-12-19..2027-01-03
 ```
 
-Multiple rules in one `when` can be separated with `;`.
+Multiple rules in one `when` can be separated with `;`. `monthly 31` means the
+last day of every month. The **Settings** tab on the Dayplanner page has a picker
+for all of these.
 
 **Calendars:** add calendar entities (e.g. a Google or CalDAV calendar).
 Use include / exclude words to filter, and icon rules (`zwem=mdi:swim`)

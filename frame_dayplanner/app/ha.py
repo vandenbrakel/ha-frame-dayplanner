@@ -147,6 +147,34 @@ class HAClient:
             _LOGGER.warning("Calendar %s failed: %s", entity_id, exc)
             return []
 
+    async def entities(self, domain: str) -> list[dict]:
+        """[{entity_id, name}] for one domain, sorted by name."""
+        try:
+            states = await self._get("/states")
+        except Exception as exc:
+            _LOGGER.warning("Could not list states: %s", exc)
+            return []
+        out = [{"entity_id": st["entity_id"], "name": st.get("attributes", {}).get("friendly_name", "")}
+               for st in states if st.get("entity_id", "").startswith(f"{domain}.")]
+        return sorted(out, key=lambda e: (e["name"] or e["entity_id"]).lower())
+
+    async def save_addon_options(self, options: dict) -> None:
+        """Store the add-on options in the Supervisor (same as the Configuration tab).
+
+        Without Supervisor (local development) they are written to options.json."""
+        if os.environ.get("HA_URL") or not _supervisor_token():
+            from .config import OPTIONS_FILE
+
+            OPTIONS_FILE.write_text(json.dumps(options, indent=2))
+            return
+        async with self.session.post("http://supervisor/addons/self/options", json={"options": options}) as r:
+            if r.status >= 400:
+                try:
+                    msg = (await r.json()).get("message")
+                except Exception:
+                    msg = await r.text()
+                raise ValueError(msg or f"Supervisor returned {r.status}")
+
     async def set_state(self, entity_id: str, state: str, attributes: dict) -> None:
         try:
             await self._post(f"/states/{entity_id}", {"state": state, "attributes": attributes})

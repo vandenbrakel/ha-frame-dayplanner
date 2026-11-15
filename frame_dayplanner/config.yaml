@@ -1,5 +1,5 @@
 name: Frame Dayplanner
-version: "0.4.2"
+version: "0.5.0"
 slug: frame_dayplanner
 description: Kid-friendly day planner (clock, weather, events, sums, words) pushed to a Samsung The Frame in art mode.
 url: https://github.com/vandenbrakel/ha-frame-dayplanner
@@ -14,6 +14,7 @@ ingress_port: 8099
 panel_icon: mdi:calendar-clock
 panel_title: Dayplanner
 homeassistant_api: true
+hassio_api: true
 map:
   - share:ro
 options:

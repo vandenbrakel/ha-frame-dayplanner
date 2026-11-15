@@ -5,69 +5,153 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Frame Dayplanner</title>
 <style>
-  :root { --bg:#f5eedf; --card:#fffaf0; --ink:#2b2622; --muted:#8f8476; --accent:#2f6fd6; --stop:#e0453a; --line:#ddd1bb; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#1c1e23; --card:#272a31; --ink:#f1ede4; --muted:#9a968e; --line:#3a3d44; } }
+  @font-face { font-family: mdi; src: url('fonts/mdi.ttf') format('truetype'); font-display: block; }
+  :root { --bg:#f5eedf; --card:#fffaf0; --ink:#2b2622; --muted:#8f8476; --accent:#2f6fd6; --stop:#e0453a; --line:#ddd1bb; --field:#fff; --hover:#f1e8d6; --ok:#3a9b4a; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#1c1e23; --card:#272a31; --ink:#f1ede4; --muted:#9a968e; --line:#3a3d44; --field:#1f2227; --hover:#30343c; } }
   * { box-sizing: border-box; }
   body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.45 system-ui, sans-serif; }
-  main { max-width: 1100px; margin: 0 auto; padding: 20px 16px; display:grid; gap:20px; grid-template-columns: minmax(0,1fr) minmax(0,1.1fr); }
-  @media (max-width: 760px) { main { grid-template-columns: 1fr; } }
+  main { max-width: 1200px; margin: 0 auto; padding: 16px; display:grid; gap:20px; grid-template-columns: minmax(0,1.15fr) minmax(0,1fr); align-items:start; }
+  @media (max-width: 820px) { main { grid-template-columns: 1fr; } }
   h1 { font-size: 22px; margin: 0 0 4px; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; }
+  .stack > * + * { margin-top: 16px; }
   .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin: 12px 0; }
-  button { border:0; border-radius:10px; padding:10px 16px; font-size:15px; font-weight:600; cursor:pointer; background:var(--accent); color:#fff; }
+  button { border:0; border-radius:10px; padding:10px 16px; font-size:15px; font-weight:600; cursor:pointer; background:var(--accent); color:#fff; font-family: inherit; }
   button.secondary { background:transparent; color:var(--ink); border:1px solid var(--line); }
   button.stop { background:var(--stop); }
-  input { width:80px; padding:9px; border-radius:10px; border:1px solid var(--line); background:transparent; color:var(--ink); font-size:15px; }
+  button.small { padding:5px 10px; font-size:13px; }
+  button.icon-btn { padding:4px 9px; font-size:15px; background:transparent; color:var(--muted); border:1px solid var(--line); }
+  button:disabled { opacity:.5; cursor:default; }
+  input, select { padding:8px 10px; border-radius:9px; border:1px solid var(--line); background:var(--field); color:var(--ink); font-size:15px; font-family: inherit; min-width:0; }
+  input[type=number] { width: 90px; }
+  input[type=color] { padding: 2px; width: 44px; height: 36px; }
+  input[type=checkbox] { width:18px; height:18px; accent-color: var(--accent); }
   .pill { display:inline-block; padding:3px 10px; border-radius:99px; font-weight:600; font-size:13px; background:var(--line); }
-  .pill.on { background:#3a9b4a; color:#fff; }
+  .pill.on { background:var(--ok); color:#fff; }
   dl { display:grid; grid-template-columns: auto 1fr; gap:4px 14px; margin: 12px 0 0; font-size:14px; }
   dt { color:var(--muted); } dd { margin:0; overflow-wrap:anywhere; }
-  .preview { text-align:center; }
-  .preview img { max-width:100%; max-height:78vh; border-radius:8px; border:1px solid var(--line); box-shadow: 0 6px 24px rgba(0,0,0,.12); }
+  .preview { text-align:center; position: sticky; top: 16px; }
+  .preview img { max-width:100%; max-height:82vh; border-radius:8px; border:1px solid var(--line); box-shadow: 0 6px 24px rgba(0,0,0,.12); }
   .muted { color:var(--muted); font-size:14px; }
   code { font-size: 13px; }
+  .tabs { display:flex; gap:6px; margin-bottom: 16px; }
+  .tabs button { background:transparent; color:var(--ink); border:1px solid var(--line); }
+  .tabs button.active { background:var(--ink); color:var(--card); border-color:var(--ink); }
+  [hidden] { display:none !important; }
+  /* settings */
+  details.group { background:var(--card); border:1px solid var(--line); border-radius:14px; padding: 4px 18px; }
+  details.group + details.group { margin-top: 12px; }
+  details.group > summary { cursor:pointer; font-weight:700; padding: 12px 0; list-style-position: outside; }
+  .field { display:grid; grid-template-columns: 190px minmax(0,1fr); gap: 4px 14px; padding: 10px 0; border-top:1px solid var(--line); }
+  .field:first-of-type { border-top: 0; }
+  @media (max-width: 560px) { .field { grid-template-columns: 1fr; } }
+  .field > label { font-weight:600; font-size:14px; padding-top: 8px; }
+  .field .desc { grid-column: 2; color:var(--muted); font-size:13px; }
+  @media (max-width: 560px) { .field .desc { grid-column: 1; } }
+  .inline { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .items > .item { border:1px solid var(--line); border-radius:12px; padding: 10px 12px; margin-bottom: 8px; display:grid; gap:8px; }
+  .item .head { display:flex; gap:6px; justify-content:flex-end; }
+  .sub { display:grid; grid-template-columns: 80px minmax(0,1fr); gap: 8px; align-items:center; }
+  .sub > span { font-size:13px; color:var(--muted); }
+  .days { display:flex; gap:4px; flex-wrap:wrap; }
+  .days button { padding:6px 0; width:40px; background:transparent; color:var(--ink); border:1px solid var(--line); font-size:14px; }
+  .days button.on { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .glyph { font-family: mdi; font-size: 22px; line-height: 1; display:inline-block; width: 26px; text-align:center; }
+  .iconpick { position:relative; display:flex; align-items:center; gap:6px; }
+  .iconpick input { flex: 1; }
+  .dropdown { position:absolute; z-index: 20; top: 100%; left: 0; right: 0; margin-top: 4px; max-height: 300px; overflow:auto; background:var(--card); border:1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.18); display:grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); padding: 6px; gap: 2px; }
+  .dropdown button { display:flex; align-items:center; gap:8px; background:transparent; color:var(--ink); font-weight:400; font-size:13px; padding:6px 8px; text-align:left; border-radius:8px; overflow:hidden; white-space:nowrap; text-overflow: ellipsis; }
+  .dropdown button:hover, .dropdown button.sel { background:var(--hover); }
+  .chips { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+  .chip { display:inline-flex; align-items:center; gap:4px; border:1px solid var(--line); border-radius:99px; padding: 2px 4px 2px 10px; font-size:13px; }
+  .chip button { padding: 0 6px; background:transparent; color:var(--muted); font-size:15px; }
+  .savebar { position: sticky; bottom: 0; margin-top: 16px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding: 12px 18px; display:flex; gap:10px; align-items:center; flex-wrap: wrap; box-shadow: 0 -6px 18px rgba(0,0,0,.08); }
+  .err { color: var(--stop); font-weight: 600; }
+  .okmsg { color: var(--ok); font-weight: 600; }
 </style>
 </head>
 <body>
 <main>
   <section>
-    <div class="card">
-      <h1>Frame Dayplanner</h1>
-      <div><span id="pill" class="pill">…</span> <span id="msg" class="muted"></span></div>
-      <div class="row">
-        <label for="minutes">Test for</label>
-        <input id="minutes" type="number" min="1" max="1440" value="10"> <span>minutes</span>
-        <button id="test">Start now</button>
-        <button id="stop" class="stop">Stop &amp; restore</button>
-      </div>
-      <div class="row">
-        <button id="refresh" class="secondary">Refresh preview</button>
-        <button id="pair" class="secondary">Connect to TV</button>
-      </div>
-      <dl id="info"></dl>
+    <div class="tabs">
+      <button id="tab-status" class="active">Status</button>
+      <button id="tab-settings">Settings</button>
     </div>
-    <div class="card" style="margin-top:20px">
-      <strong>Weather check</strong>
-      <div id="weather" class="muted">Loading…</div>
+
+    <div id="page-status" class="stack">
+      <div class="card">
+        <h1>Frame Dayplanner</h1>
+        <div><span id="pill" class="pill">…</span> <span id="msg" class="muted"></span></div>
+        <div class="row">
+          <label for="minutes">Test for</label>
+          <input id="minutes" type="number" min="1" max="1440" value="10"> <span>minutes</span>
+          <button id="test">Start now</button>
+          <button id="stop" class="stop">Stop &amp; restore</button>
+        </div>
+        <div class="row">
+          <button id="refresh" class="secondary">Refresh preview</button>
+          <button id="pair" class="secondary">Connect to TV</button>
+        </div>
+        <dl id="info"></dl>
+      </div>
+      <div class="card">
+        <strong>Weather check</strong>
+        <div id="weather" class="muted">Loading…</div>
+      </div>
+      <div class="card">
+        <strong>Tips</strong>
+        <p class="muted">Change everything on the <em>Settings</em> tab (it saves to the add-on configuration). The first time you click <em>Connect to TV</em>, the TV asks to allow “FrameDayplanner”; accept it with the remote.</p>
+        <p class="muted">From automations or dashboard buttons, fire the event <code>frame_dayplanner</code> with data <code>{"action": "test", "minutes": 10}</code> or <code>{"action": "stop"}</code>. Status is in <code>sensor.frame_dayplanner</code>.</p>
+      </div>
     </div>
-    <div class="card" style="margin-top:20px">
-      <strong>Tips</strong>
-      <p class="muted">All settings live on the add-on's <em>Configuration</em> tab. The first time you click <em>Connect to TV</em> (or a session starts), the TV asks to allow “FrameDayplanner”; accept it with the remote.</p>
-      <p class="muted">From automations or dashboard buttons, fire the event <code>frame_dayplanner</code> with data <code>{"action": "test", "minutes": 10}</code> or <code>{"action": "stop"}</code>. Status is in <code>sensor.frame_dayplanner</code>.</p>
+
+    <div id="page-settings" hidden>
+      <div id="settings"><p class="muted">Loading settings…</p></div>
+      <div class="savebar">
+        <button id="save" disabled>Save</button>
+        <button id="discard" class="secondary" disabled>Discard changes</button>
+        <span id="savemsg" class="muted">No changes</span>
+      </div>
     </div>
   </section>
+
   <section class="card preview">
     <img id="img" alt="Preview of the planner">
-    <p class="muted">Live preview (not sent to the TV)</p>
+    <p class="muted" id="previewnote">Live preview (not sent to the TV)</p>
   </section>
 </main>
+
 <script>
+'use strict';
 const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
 const fmt = (iso) => iso ? new Date(iso).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'}) : '–';
-function refreshPreview() { $('img').src = 'api/preview.jpg?t=' + Date.now(); }
 async function call(path, body) {
   const r = await fetch(path, {method: body === undefined ? 'GET' : 'POST', headers: {'Content-Type': 'application/json'}, body: body === undefined ? undefined : JSON.stringify(body)});
   return r.json();
+}
+function el(tag, attrs = {}, ...children) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (k === 'class') e.className = v;
+    else if (v !== undefined && v !== null && v !== false) e.setAttribute(k, v === true ? '' : v);
+  }
+  for (const c of children.flat()) if (c !== null && c !== undefined) e.append(c.nodeType ? c : document.createTextNode(c));
+  return e;
+}
+
+/* ------------------------------------------------------------------ status */
+let previewUrl = null;
+function showPreviewBlob(blob) {
+  if (previewUrl) URL.revokeObjectURL(previewUrl);
+  previewUrl = URL.createObjectURL(blob);
+  $('img').src = previewUrl;
+}
+function refreshPreview() {
+  if (settings.dirty) return livePreview();
+  $('img').src = 'api/preview.jpg?t=' + Date.now();
+  $('previewnote').textContent = 'Live preview (not sent to the TV)';
 }
 async function status() {
   try {
@@ -81,22 +165,17 @@ async function status() {
       ['Test until', fmt(s.test_until)], ['Last push', fmt(s.last_push) + (s.last_push_seconds ? ` (${s.last_push_seconds}s)` : '')],
       ['Next push', fmt(s.next_push)], ['Restores art', s.restore_id || '–'],
     ];
-    $('info').innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+    $('info').innerHTML = rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('');
   } catch (e) { $('msg').textContent = 'Cannot reach add-on'; }
 }
-$('test').onclick = async () => { await call('api/test', {minutes: Number($('minutes').value) || 10}); status(); };
-$('stop').onclick = async () => { await call('api/stop', {}); status(); };
-$('refresh').onclick = refreshPreview;
-$('pair').onclick = async () => { $('msg').textContent = 'Connecting… check the TV for a prompt'; const r = await call('api/pair', {}); $('msg').textContent = r.message; };
 async function weather() {
-  const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
   try {
     const w = await call('api/weather');
     const c = w.configured || {};
     let html = '';
     if (!w.ha_connected) html += '<p>No connection to Home Assistant.</p>';
-    else if (!c.entity) html += '<p>No <code>weather_entity</code> configured.</p>';
-    else if (!c.found) html += `<p>⚠️ <code>${esc(c.entity)}</code> does not exist. Pick one below and set it as <code>weather_entity</code>.</p>`;
+    else if (!c.entity) html += '<p>No weather entity configured (Settings → Weather).</p>';
+    else if (!c.found) html += `<p>⚠️ <code>${esc(c.entity)}</code> does not exist. Pick one in Settings → Weather.</p>`;
     else if (!c.forecast_entries) html += `<p>⚠️ <code>${esc(c.entity)}</code> gives no forecast (${esc((c.errors || []).join('; '))}).</p>`;
     else html += `<p>✅ <code>${esc(c.entity)}</code>: ${esc(c.state)}, ${c.forecast_entries} ${esc(c.forecast_type)} forecast entries.</p>`;
     if (w.entities.length) {
@@ -107,9 +186,437 @@ async function weather() {
     $('weather').innerHTML = html;
   } catch (e) { $('weather').textContent = 'Weather check failed'; }
 }
+$('test').onclick = async () => { await call('api/test', {minutes: Number($('minutes').value) || 10}); status(); };
+$('stop').onclick = async () => { await call('api/stop', {}); status(); };
+$('refresh').onclick = refreshPreview;
+$('pair').onclick = async () => { $('msg').textContent = 'Connecting… check the TV for a prompt'; const r = await call('api/pair', {}); $('msg').textContent = r.message; };
+
+/* -------------------------------------------------------------------- days */
+const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+const DAY_SHORT = ['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo'];
+const ALIASES = {mon: 0, monday: 0, tue: 1, tuesday: 1, wed: 2, wednesday: 2, thu: 3, thursday: 3, fri: 4, friday: 4, sat: 5, saturday: 5, sun: 6, sunday: 6,
+  ma: 0, maandag: 0, di: 1, dinsdag: 1, wo: 2, woensdag: 2, do: 3, donderdag: 3, vr: 4, vrijdag: 4, za: 5, zaterdag: 5, zo: 6, zondag: 6};
+function parseDays(v) {
+  v = String(v ?? '').trim().toLowerCase();
+  if (['', 'daily', 'all', 'every day', 'elke dag', 'dagelijks'].includes(v)) return new Set([0, 1, 2, 3, 4, 5, 6]);
+  if (['weekdays', 'werkdagen', 'doordeweeks'].includes(v)) return new Set([0, 1, 2, 3, 4]);
+  if (['weekend', 'weekends'].includes(v)) return new Set([5, 6]);
+  const out = new Set();
+  for (const part of v.split(/[,\s]+/).filter(Boolean)) {
+    if (part.includes('-')) {
+      const [a, b] = part.split('-', 2);
+      if (!(a in ALIASES) || !(b in ALIASES)) return null;
+      for (let i = ALIASES[a]; ; i = (i + 1) % 7) { out.add(i); if (i === ALIASES[b]) break; }
+    } else {
+      if (!(part in ALIASES)) return null;
+      out.add(ALIASES[part]);
+    }
+  }
+  return out;
+}
+function formatDays(set) {
+  const d = [...set].sort();
+  if (d.length === 7) return 'daily';
+  if (d.join() === '0,1,2,3,4') return 'mon-fri';
+  if (d.join() === '5,6') return 'sat,sun';
+  const parts = [];
+  for (let i = 0; i < d.length;) {
+    let j = i;
+    while (j + 1 < d.length && d[j + 1] === d[j] + 1) j++;
+    parts.push(j - i >= 2 ? `${DAY_KEYS[d[i]]}-${DAY_KEYS[d[j]]}` : d.slice(i, j + 1).map((x) => DAY_KEYS[x]).join(','));
+    i = j + 1;
+  }
+  return parts.join(',');
+}
+
+/* ----------------------------------------------------------------- widgets */
+const iconCache = new Map();  // name -> codepoint
+async function searchIcons(q) {
+  const res = await call('api/icons?q=' + encodeURIComponent(q));
+  for (const [n, cp] of res) iconCache.set(n, cp);
+  return res;
+}
+async function glyphFor(value) {
+  const name = String(value || '').replace(/^mdi:/, '').trim();
+  if (!name) return '';
+  if (!iconCache.has(name)) await searchIcons(name);
+  return iconCache.has(name) ? String.fromCodePoint(iconCache.get(name)) : '?';
+}
+const entityCache = {};
+function entitiesFor(domain) { return entityCache[domain] ??= call('api/entities?domain=' + domain); }
+
+const W = {
+  text(v, on, o = {}) {
+    const listId = o.suggest ? 'dl-' + Math.random().toString(36).slice(2) : null;
+    const input = el('input', {type: 'text', value: v ?? '', placeholder: o.placeholder || '', list: listId, style: 'width:100%', oninput: (e) => on(e.target.value)});
+    if (!o.suggest) return input;
+    return el('div', {}, input, el('datalist', {id: listId}, o.suggest.map((s) => el('option', {value: s}))));
+  },
+  number(v, on, o = {}) {
+    return el('input', {type: 'number', value: v ?? '', min: o.min, max: o.max, step: o.step || 1,
+      oninput: (e) => { if (e.target.value !== '') on(Number(e.target.value)); }});
+  },
+  bool(v, on) { return el('input', {type: 'checkbox', checked: !!v, onchange: (e) => on(e.target.checked)}); },
+  select(v, on, o) {
+    return el('select', {onchange: (e) => on(e.target.value)},
+      o.options.map(([val, label]) => el('option', {value: val, selected: val === v}, label ?? val)));
+  },
+  time(v, on, o = {}) {
+    const input = el('input', {type: 'time', value: v || '', step: 60, oninput: (e) => on(e.target.value)});
+    if (!o.optional) return input;
+    return el('span', {class: 'inline'}, input,
+      el('button', {class: 'icon-btn', title: 'Clear', type: 'button', onclick: () => { input.value = ''; on(''); }}, '×'));
+  },
+  color(v, on, o = {}) {
+    const text = el('input', {type: 'text', value: v || '', placeholder: o.optional ? 'automatic' : '#rrggbb', style: 'width:110px',
+      oninput: (e) => { on(e.target.value); if (/^#[0-9a-f]{6}$/i.test(e.target.value)) pick.value = e.target.value; }});
+    const pick = el('input', {type: 'color', value: /^#[0-9a-f]{6}$/i.test(v || '') ? v : '#888888',
+      oninput: (e) => { text.value = e.target.value; on(e.target.value); }});
+    return el('span', {class: 'inline'}, pick, text);
+  },
+  days(v, on) {
+    let set = parseDays(v) || new Set();
+    const box = el('div', {class: 'days'});
+    DAY_SHORT.forEach((label, i) => {
+      const b = el('button', {type: 'button', class: set.has(i) ? 'on' : '', title: DAY_KEYS[i]}, label);
+      b.onclick = () => { set.has(i) ? set.delete(i) : set.add(i); b.classList.toggle('on'); on(set.size ? formatDays(set) : ''); };
+      box.append(b);
+    });
+    const presets = el('span', {class: 'inline'}, [['mon-fri', 'ma–vr'], ['sat,sun', 'weekend'], ['daily', 'every day']].map(([val, label]) =>
+      el('button', {type: 'button', class: 'secondary small', onclick: () => {
+        set = parseDays(val); [...box.children].forEach((b, i) => b.classList.toggle('on', set.has(i))); on(val);
+      }}, label)));
+    return el('div', {class: 'inline'}, box, presets);
+  },
+  when(v, on) {
+    v = String(v ?? '');
+    const modes = [['weekly', 'Every week on'], ['monthly', 'Every month on'], ['yearly', 'Every year on'], ['once', 'Once, on'],
+      ['range', 'Every day from … to'], ['advanced', 'Advanced (text)']];
+    const MONTHLY = /^(monthly|maandelijks)\s+(?:(\d{1,2})|(1st|2nd|3rd|4th|last)\s+([a-z]+))$/i;
+    let mode = /^\d{4}-\d{2}-\d{2}$/.test(v) ? 'once' : /^\d{2}-\d{2}$/.test(v) ? 'yearly'
+      : /^\d{4}-\d{2}-\d{2}\s*\.\.\s*\d{4}-\d{2}-\d{2}$/.test(v) ? 'range' : MONTHLY.test(v) ? 'monthly'
+      : parseDays(v) && v ? 'weekly' : v ? 'advanced' : 'weekly';
+    const holder = el('div');
+    const year = new Date().getFullYear();
+    const render = () => {
+      holder.replaceChildren();
+      if (mode === 'weekly') holder.append(W.days(parseDays(v) ? v : 'mon', (x) => { v = x; on(x); }));
+      else if (mode === 'monthly') {
+        const m = MONTHLY.exec(v) || [];
+        let kind = m[3] ? 'nth' : 'day';
+        const dayNum = el('input', {type: 'number', min: 1, max: 31, value: m[2] || 1});
+        const nth = W.select(m[3] || '1st', () => upd(), {options: [['1st', 'first'], ['2nd', 'second'], ['3rd', 'third'], ['4th', 'fourth'], ['last', 'last']]});
+        const wd = W.select(m[4] && m[4].toLowerCase() in ALIASES ? DAY_KEYS[ALIASES[m[4].toLowerCase()]] : 'mon', () => upd(),
+          {options: DAY_KEYS.map((k, i) => [k, ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'][i]])});
+        const radio = (val, label) => el('label', {class: 'inline'}, el('input', {type: 'radio', name: 'm' + Math.random(), checked: kind === val,
+          onchange: () => { kind = val; upd(); }}), label);
+        const r1 = radio('day', 'day'), r2 = radio('nth', 'the');
+        r2.querySelector('input').name = r1.querySelector('input').name;
+        const upd = () => {
+          v = kind === 'day' ? `monthly ${Math.min(31, Math.max(1, Number(dayNum.value) || 1))}` : `monthly ${nth.value} ${wd.value}`;
+          on(v);
+        };
+        dayNum.oninput = upd;
+        holder.append(el('div', {style: 'display:grid; gap:6px'},
+          el('span', {class: 'inline'}, r1, dayNum, el('span', {class: 'muted'}, '(31 = last day of the month)')),
+          el('span', {class: 'inline'}, r2, nth, wd)));
+        if (!m[0]) upd();
+      }
+      else if (mode === 'once') holder.append(el('input', {type: 'date', value: /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '', oninput: (e) => { v = e.target.value; on(v); }}));
+      else if (mode === 'yearly') holder.append(el('input', {type: 'date', value: /^\d{2}-\d{2}$/.test(v) ? `${year}-${v}` : '',
+        oninput: (e) => { v = e.target.value.slice(5); on(v); }}), el('span', {class: 'muted'}, ' (the year is ignored)'));
+      else if (mode === 'range') {
+        const [a, b] = v.includes('..') ? v.split('..').map((s) => s.trim()) : ['', ''];
+        const from = el('input', {type: 'date', value: a}), to = el('input', {type: 'date', value: b});
+        const upd = () => { v = `${from.value}..${to.value}`; if (from.value && to.value) on(v); };
+        from.oninput = upd; to.oninput = upd;
+        holder.append(el('span', {class: 'inline'}, from, '→', to));
+      } else holder.append(W.text(v, (x) => { v = x; on(x); }, {placeholder: 'mon,wed; 12-24; 2026-12-19..2027-01-03'}));
+    };
+    const sel = W.select(mode, (m) => { mode = m; render(); }, {options: modes});
+    render();
+    return el('div', {class: 'stack', style: 'display:grid; gap:6px'}, sel, holder);
+  },
+  icon(v, on, o = {}) {
+    const glyph = el('span', {class: 'glyph'});
+    const input = el('input', {type: 'text', value: v || '', placeholder: o.placeholder || 'search: swim, fiets, school…', autocomplete: 'off'});
+    const drop = el('div', {class: 'dropdown', hidden: true});
+    let items = [], sel = -1, timer;
+    const setGlyph = async () => { glyph.textContent = await glyphFor(input.value); };
+    const choose = (name) => { input.value = 'mdi:' + name; on(input.value); setGlyph(); drop.hidden = true; };
+    const show = async () => {
+      items = await searchIcons(input.value);
+      sel = -1;
+      drop.replaceChildren(...items.map(([n, cp], i) => el('button', {type: 'button', title: n, onmousedown: (e) => { e.preventDefault(); choose(n); }},
+        el('span', {class: 'glyph'}, String.fromCodePoint(cp)), n)));
+      drop.hidden = !items.length;
+    };
+    input.addEventListener('focus', show);
+    input.addEventListener('input', () => { on(input.value); clearTimeout(timer); timer = setTimeout(() => { show(); setGlyph(); }, 150); });
+    input.addEventListener('blur', () => setTimeout(() => { drop.hidden = true; }, 120));
+    input.addEventListener('keydown', (e) => {
+      if (drop.hidden) return;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        sel = Math.max(0, Math.min(items.length - 1, sel + (e.key === 'ArrowDown' ? 1 : -1)));
+        [...drop.children].forEach((b, i) => b.classList.toggle('sel', i === sel));
+        drop.children[sel]?.scrollIntoView({block: 'nearest'});
+      } else if (e.key === 'Enter' && sel >= 0) { e.preventDefault(); choose(items[sel][0]); }
+      else if (e.key === 'Escape') drop.hidden = true;
+    });
+    setGlyph();
+    return el('div', {class: 'iconpick'}, glyph, input, drop);
+  },
+  iconlist(v, on) {
+    let list = String(v || '').split(',').map((s) => s.trim()).filter(Boolean);
+    const chips = el('div', {class: 'chips'});
+    const emit = () => on(list.join(', '));
+    const render = async () => {
+      chips.replaceChildren(...await Promise.all(list.map(async (name, i) => el('span', {class: 'chip'},
+        el('span', {class: 'glyph', style: 'font-size:18px;width:20px'}, await glyphFor(name)), name.replace(/^mdi:/, ''),
+        el('button', {type: 'button', title: 'Remove', onclick: () => { list.splice(i, 1); emit(); render(); }}, '×')))));
+    };
+    const adder = W.icon('', (x) => {
+      if (/^mdi:[a-z0-9-]+$/.test(x) && iconCache.has(x.slice(4))) {
+        list.push(x); emit(); render(); adder.querySelector('input').value = ''; adder.querySelector('.glyph').textContent = '';
+      }
+    }, {placeholder: 'add an icon…'});
+    render();
+    return el('div', {style: 'display:grid; gap:8px'}, chips, adder);
+  },
+  entity(v, on, o) {
+    const s = el('select', {onchange: (e) => on(e.target.value)}, el('option', {value: v || ''}, v || '(none)'));
+    entitiesFor(o.domain).then((list) => {
+      const opts = [el('option', {value: ''}, '(none)')];
+      if (v && !list.some((e) => e.entity_id === v)) opts.push(el('option', {value: v, selected: true}, `${v} (not found)`));
+      for (const e of list) opts.push(el('option', {value: e.entity_id, selected: e.entity_id === v}, e.name ? `${e.name} (${e.entity_id})` : e.entity_id));
+      s.replaceChildren(...opts);
+    });
+    return s;
+  },
+  entities(v, on, o) {
+    const chosen = new Set(v || []);
+    const box = el('div', {style: 'display:grid; gap:4px'}, el('span', {class: 'muted'}, 'Loading…'));
+    entitiesFor(o.domain).then((list) => {
+      const all = [...list.map((e) => [e.entity_id, e.name]), ...[...chosen].filter((id) => !list.some((e) => e.entity_id === id)).map((id) => [id, 'not found'])];
+      box.replaceChildren(...(all.length ? all.map(([id, name]) => el('label', {class: 'inline'},
+        el('input', {type: 'checkbox', checked: chosen.has(id), onchange: (e) => { e.target.checked ? chosen.add(id) : chosen.delete(id); on([...chosen]); }}),
+        name ? `${name} ` : '', el('code', {}, id))) : [el('span', {class: 'muted'}, `No ${o.domain} entities found in Home Assistant.`)]));
+    });
+    return box;
+  },
+  csv(v, on, o = {}) {
+    return W.text((v || []).join(', '), (x) => on(x.split(',').map((s) => s.trim()).filter(Boolean)), {placeholder: o.placeholder || 'comma separated'});
+  },
+  checks(v, on, o) {
+    const chosen = new Set(String(v || '').split(',').map((s) => s.trim()).filter(Boolean));
+    return el('div', {class: 'inline'}, o.options.map(([val, label]) => el('label', {class: 'inline', style: 'margin-right:10px'},
+      el('input', {type: 'checkbox', checked: chosen.has(val), onchange: (e) => {
+        e.target.checked ? chosen.add(val) : chosen.delete(val);
+        on(o.options.map(([x]) => x).filter((x) => chosen.has(x)).join(','));
+      }}), label || val)));
+  },
+  colors7(v, on) {
+    const list = String(v || '').split(',').map((s) => s.trim());
+    while (list.length < 7) list.push('#888888');
+    return el('div', {class: 'inline'}, DAY_SHORT.map((d, i) => el('label', {style: 'display:grid; justify-items:center; font-size:13px'},
+      el('input', {type: 'color', value: /^#[0-9a-f]{6}$/i.test(list[i]) ? list[i] : '#888888', oninput: (e) => { list[i] = e.target.value; on(list.slice(0, 7).join(', ')); }}), d)));
+  },
+  rules(v, on) {
+    const rows = (v || []).map((r) => { const [w, ...ic] = String(r).split('='); return {word: w.trim(), icon: ic.join('=').trim()}; });
+    const emit = () => on(rows.filter((r) => r.word && r.icon).map((r) => `${r.word}=${r.icon}`));
+    const box = el('div', {class: 'items'});
+    const render = () => {
+      box.replaceChildren(...rows.map((r, i) => el('div', {class: 'inline', style: 'margin-bottom:6px'},
+        el('input', {type: 'text', value: r.word, placeholder: 'word', style: 'width:130px', oninput: (e) => { r.word = e.target.value; emit(); }}),
+        '→', el('div', {style: 'flex:1; min-width:200px'}, W.icon(r.icon, (x) => { r.icon = x; emit(); })),
+        el('button', {type: 'button', class: 'icon-btn', title: 'Remove', onclick: () => { rows.splice(i, 1); emit(); render(); }}, '×'))),
+        el('button', {type: 'button', class: 'secondary small', onclick: () => { rows.push({word: '', icon: ''}); render(); }}, '+ Add rule'));
+    };
+    render();
+    return box;
+  },
+  list(v, on, o) {
+    const rows = (v || []).map((r) => ({...r}));
+    const emit = () => on(rows.map((r) => Object.fromEntries(Object.entries(r).filter(([, x]) => x !== '' && x !== null && x !== undefined))));
+    const box = el('div', {class: 'items'});
+    const render = () => {
+      box.replaceChildren(...rows.map((r, i) => el('div', {class: 'item'},
+        el('div', {class: 'head'},
+          o.title ? el('strong', {style: 'margin-right:auto'}, o.title(r, i)) : null,
+          el('button', {type: 'button', class: 'icon-btn', title: 'Move up', disabled: i === 0, onclick: () => { [rows[i - 1], rows[i]] = [rows[i], rows[i - 1]]; emit(); render(); }}, '↑'),
+          el('button', {type: 'button', class: 'icon-btn', title: 'Move down', disabled: i === rows.length - 1, onclick: () => { [rows[i + 1], rows[i]] = [rows[i], rows[i + 1]]; emit(); render(); }}, '↓'),
+          el('button', {type: 'button', class: 'icon-btn', title: 'Remove', onclick: () => { rows.splice(i, 1); emit(); render(); }}, '×')),
+        o.item.map((f) => el('div', {class: 'sub'}, el('span', {}, f.label),
+          W[f.type](r[f.key], (x) => { r[f.key] = x; emit(); }, f))))),
+        el('button', {type: 'button', class: 'secondary small', onclick: () => { rows.push({...o.newItem}); emit(); render(); }}, o.addLabel || '+ Add'));
+    };
+    render();
+    return box;
+  },
+};
+
+/* ------------------------------------------------------------- the form */
+const COUNTRIES = ['NL', 'BE', 'DE', 'FR', 'GB', 'US', 'ES', 'IT', 'AT', 'CH', 'DK', 'SE', 'NO', 'PL'];
+const MODULES = 'Modules: day, date, clock, time, weather, events, sum, word, week, spacer, line. "," = next row, "|" = side by side, name:2 = weight.';
+const SPEC = [
+  {group: 'TV & screen', fields: [
+    {key: 'tv_host', type: 'text', placeholder: '192.168.1.50'},
+    {key: 'tv_port', type: 'number', min: 1, max: 65535},
+    {key: 'orientation', type: 'select', options: [['portrait'], ['landscape']]},
+    {key: 'resolution', type: 'select', options: [['4k'], ['1080p']]},
+    {key: 'matte', type: 'text', suggest: ['none', 'flexible_polar', 'shadowbox_polar', 'modern_polar', 'modernthin_polar']},
+    {key: 'language', type: 'select', options: [['nl', 'Nederlands'], ['en', 'English']]},
+    {key: 'theme', type: 'select', options: [['paper'], ['white'], ['dark']]},
+    {key: 'day_background', type: 'bool'},
+    {key: 'only_in_art_mode', type: 'bool'},
+    {key: 'restore_previous_art', type: 'bool'},
+    {key: 'update_every_minutes', type: 'number', min: 1, max: 60},
+    {key: 'lead_seconds', type: 'number', min: 0, max: 30},
+  ]},
+  {group: 'Schedule', fields: [
+    {key: 'schedule', type: 'list', addLabel: '+ Add time window', newItem: {days: 'mon-fri', start: '07:00', end: '08:30'},
+      title: (r) => `${r.days || '?'} ${r.start || ''}–${r.end || ''}`,
+      item: [{key: 'days', label: 'Days', type: 'days'}, {key: 'start', label: 'From', type: 'time'}, {key: 'end', label: 'To', type: 'time'}]},
+  ]},
+  {group: 'Clock', fields: [
+    {key: 'clock_style', type: 'select', options: [['analog'], ['digital'], ['both']]},
+    {key: 'clock_minute_numbers', type: 'bool'},
+    {key: 'clock_event_arcs', type: 'bool'},
+    {key: 'clock_slots', type: 'list', addLabel: '+ Add time slot', newItem: {label: '', days: 'mon-fri', start: '08:15', end: '08:25', icon: 'mdi:school'},
+      title: (r) => r.label || 'New slot',
+      item: [{key: 'label', label: 'Label', type: 'text', placeholder: 'Naar school'}, {key: 'days', label: 'Days', type: 'days'},
+        {key: 'start', label: 'From', type: 'time'}, {key: 'end', label: 'To', type: 'time', optional: true},
+        {key: 'icon', label: 'Icon', type: 'icon'}, {key: 'color', label: 'Colour', type: 'color', optional: true}]},
+    {key: 'clock_slot_gradient', type: 'bool'},
+    {key: 'clock_slot_countdown_minutes', type: 'number', min: 1, max: 60},
+  ]},
+  {group: 'Events', fields: [
+    {key: 'events', type: 'list', addLabel: '+ Add event', newItem: {title: '', when: 'mon', icon: 'mdi:calendar-star'},
+      title: (r) => r.title || 'New event',
+      item: [{key: 'title', label: 'Title', type: 'text', placeholder: 'Zwemdag'}, {key: 'when', label: 'When', type: 'when'},
+        {key: 'icon', label: 'Icon', type: 'icon'}, {key: 'start', label: 'From', type: 'time', optional: true},
+        {key: 'end', label: 'To', type: 'time', optional: true}, {key: 'highlight', label: 'Big', type: 'bool'},
+        {key: 'color', label: 'Colour', type: 'color', optional: true}]},
+    {key: 'max_events', type: 'number', min: 0, max: 8},
+  ]},
+  {group: 'Calendars & holidays', fields: [
+    {key: 'calendar_entities', type: 'entities', domain: 'calendar'},
+    {key: 'calendar_include_words', type: 'csv', placeholder: 'e.g. zwemmen, voetbal'},
+    {key: 'calendar_exclude_words', type: 'csv', placeholder: 'e.g. werk, overleg'},
+    {key: 'calendar_icon_rules', type: 'rules'},
+    {key: 'holidays_country', type: 'text', suggest: COUNTRIES, placeholder: 'NL (empty = off)'},
+    {key: 'holidays_extra', type: 'bool'},
+  ]},
+  {group: 'Weather', fields: [
+    {key: 'weather_entity', type: 'entity', domain: 'weather'},
+  ]},
+  {group: 'Week strip', fields: [
+    {key: 'week_start', type: 'select', options: [['monday'], ['sunday'], ['today', 'today on top']]},
+    {key: 'week_colors', type: 'colors7'},
+  ]},
+  {group: 'Sum & word', fields: [
+    {key: 'sum_operations', type: 'checks', options: [['+', '+'], ['-', '−'], ['x', '×'], [':', ':']]},
+    {key: 'sum_max', type: 'number', min: 2, max: 1000},
+    {key: 'sum_terms', type: 'number', min: 2, max: 4},
+    {key: 'sum_missing', type: 'select', options: [['answer', '3 + 4 = ?'], ['random', 'sometimes 3 + ? = 7']]},
+    {key: 'word_patterns', type: 'checks', options: [['mk', 'mk (zee)'], ['km', 'km (ik)'], ['mkm', 'mkm (vis)'], ['mmk', 'mmk (slee)'], ['mmkm', 'mmkm (slak)'], ['mkmm', 'mkmm (kast)'], ['mmkmm', 'mmkmm (plant)']]},
+    {key: 'word_max_letters', type: 'number', min: 1, max: 10},
+    {key: 'word_digraphs', type: 'bool'},
+    {key: 'word_case', type: 'select', options: [['lower', 'kleine letters'], ['upper', 'HOOFDLETTERS']]},
+    {key: 'word_show_sounds', type: 'bool'},
+    {key: 'word_custom_list', type: 'csv', placeholder: 'own words, comma separated (empty = built-in list)'},
+    {key: 'puzzle_refresh', type: 'select', options: [['daily'], ['hourly'], ['session']]},
+  ]},
+  {group: 'Hidden figure', fields: [
+    {key: 'hidden_enabled', type: 'bool'},
+    {key: 'hidden_icons', type: 'iconlist'},
+    {key: 'hidden_image', type: 'text', placeholder: '/share/dayplanner/figure.png'},
+    {key: 'hidden_color', type: 'color'},
+    {key: 'hidden_size', type: 'number', min: 1, max: 20},
+    {key: 'hidden_count', type: 'number', min: 1, max: 5},
+  ]},
+  {group: 'Layout', fields: [
+    {key: 'layout_portrait', type: 'list', addLabel: '+ Add column', newItem: {width: 20, modules: 'week'},
+      item: [{key: 'width', label: 'Width', type: 'number', min: 1, max: 100}, {key: 'modules', label: 'Modules', type: 'text', placeholder: 'day, date, clock'}]},
+    {key: 'layout_landscape', type: 'list', addLabel: '+ Add column', newItem: {width: 20, modules: 'week'},
+      item: [{key: 'width', label: 'Width', type: 'number', min: 1, max: 100}, {key: 'modules', label: 'Modules', type: 'text', placeholder: 'day, date, clock'}]},
+  ], note: MODULES},
+];
+
+const settings = {saved: null, current: null, labels: {}, dirty: false};
+let previewTimer;
+function changed() {
+  settings.dirty = JSON.stringify(settings.current) !== JSON.stringify(settings.saved);
+  $('save').disabled = $('discard').disabled = !settings.dirty;
+  $('savemsg').className = 'muted';
+  $('savemsg').textContent = settings.dirty ? 'Unsaved changes' : 'No changes';
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(refreshPreview, 500);
+}
+async function livePreview() {
+  $('previewnote').textContent = 'Preview of unsaved changes…';
+  const r = await fetch('api/preview', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({options: settings.current})});
+  if (r.ok) { showPreviewBlob(await r.blob()); $('previewnote').textContent = 'Preview of unsaved changes (not sent to the TV)'; }
+}
+function buildForm() {
+  const root = $('settings');
+  root.replaceChildren();
+  SPEC.forEach((g, gi) => {
+    const det = el('details', {class: 'group', open: gi === 0 || location.hash === '#settings-all'}, el('summary', {}, g.group));
+    for (const f of g.fields) {
+      const lab = settings.labels[f.key] || {};
+      const widget = W[f.type](settings.current[f.key], (x) => { settings.current[f.key] = x; changed(); }, f);
+      det.append(el('div', {class: 'field'}, el('label', {}, lab.name || f.key), widget,
+        lab.description ? el('div', {class: 'desc'}, lab.description) : null));
+    }
+    if (g.note) det.append(el('p', {class: 'muted'}, g.note));
+    root.append(det);
+  });
+}
+async function loadSettings() {
+  const r = await call('api/options');
+  settings.saved = r.options;
+  settings.current = structuredClone(r.options);
+  settings.labels = r.labels || {};
+  buildForm();
+  changed();
+}
+$('save').onclick = async () => {
+  $('save').disabled = true;
+  $('savemsg').textContent = 'Saving…';
+  const r = await fetch('api/options', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({options: settings.current})});
+  const res = await r.json();
+  if (res.ok) {
+    settings.saved = structuredClone(settings.current);
+    changed();
+    $('savemsg').className = 'okmsg';
+    $('savemsg').textContent = '✓ ' + res.message;
+    status(); weather();
+  } else {
+    $('save').disabled = false;
+    $('savemsg').className = 'err';
+    $('savemsg').textContent = res.message;
+  }
+};
+$('discard').onclick = () => { settings.current = structuredClone(settings.saved); buildForm(); changed(); };
+
+/* -------------------------------------------------------------------- tabs */
+function tab(name) {
+  $('tab-status').classList.toggle('active', name === 'status');
+  $('tab-settings').classList.toggle('active', name === 'settings');
+  $('page-status').hidden = name !== 'status';
+  $('page-settings').hidden = name !== 'settings';
+  if (name === 'settings' && !settings.saved) loadSettings();
+}
+$('tab-status').onclick = () => tab('status');
+$('tab-settings').onclick = () => tab('settings');
+window.addEventListener('beforeunload', (e) => { if (settings.dirty) e.preventDefault(); });
+
 status(); refreshPreview(); weather();
+if (location.hash.startsWith('#settings')) tab('settings');
 setInterval(status, 3000);
-setInterval(refreshPreview, 60000);
+setInterval(() => { if (!settings.dirty) refreshPreview(); }, 60000);
 </script>
 </body>
 </html>

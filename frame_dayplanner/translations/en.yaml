@@ -85,7 +85,7 @@ configuration:
     description: A weather entity, e.g. weather.forecast_home. Leave empty to hide weather.
   events:
     name: Events
-    description: "Weekly / custom events. when: mon | mon,wed | weekdays | 2026-11-20 | 11-20 (every year) | 2026-12-21..2027-01-04. Optional icon (mdi:swim), start/end (HH:MM), highlight, color (#hex)."
+    description: "Repeating or one-time events. when: weekly 'mon' or 'mon,wed' | monthly 'monthly 15' or 'monthly 1st wed' / 'monthly last fri' | yearly '11-20' | once '2026-11-20' | period '2026-12-21..2027-01-04'. Optional icon (mdi:swim), start/end (HH:MM), highlight, color (#hex). Easier: use the Settings tab on the Dayplanner page."
   calendar_entities:
     name: Calendars
     description: Home Assistant calendar entities, e.g. calendar.family.

@@ -107,6 +107,38 @@ class EventTests(unittest.TestCase):
         self.assertIn("Zwemdag", [e.title for e in events_for_day(cfg, date(2026, 11, 16), TZ, [])])
 
 
+class MonthlyAndValidationTests(unittest.TestCase):
+    def _days(self, when, y=2026, m=11):
+        import calendar
+
+        from app.config import EventRule
+        from app.events import rule_matches
+
+        return [d for d in range(1, calendar.monthrange(y, m)[1] + 1) if rule_matches(EventRule("x", when), date(y, m, d))]
+
+    def test_repeat_types(self):
+        self.assertEqual(self._days("mon"), [2, 9, 16, 23, 30])         # weekly
+        self.assertEqual(self._days("monthly 15"), [15])                 # monthly, day
+        self.assertEqual(self._days("monthly 31"), [30])                 # last day of a 30-day month
+        self.assertEqual(self._days("monthly 31", 2026, 2), [28])
+        self.assertEqual(self._days("monthly 1st wed"), [4])             # monthly, nth weekday
+        self.assertEqual(self._days("monthly last fri"), [27])
+        self.assertEqual(self._days("maandelijks laatste zo"), [29])
+        self.assertEqual(self._days("11-11"), [11])                      # yearly
+        self.assertEqual(self._days("2026-11-20"), [20])                 # once
+        self.assertEqual(self._days("2026-11-28..2026-12-02"), [28, 29, 30])
+
+    def test_strict_validation(self):
+        from app.config import build_config
+
+        for bad in ("monthly 32", "monthly 5th wed", "funday", "2026-02-30", "13-01"):
+            with self.assertRaises(ValueError, msg=bad):
+                build_config({"events": [{"title": "x", "when": bad}]}, strict=True)
+        with self.assertRaises(ValueError):
+            build_config({"schedule": [{"days": "mon-xyz", "start": "07:00", "end": "08:00"}]}, strict=True)
+        build_config({"events": [{"title": "x", "when": "monthly 2 di; 12-24"}]}, strict=True)
+
+
 class SlotAndHiddenTests(unittest.TestCase):
     def _render(self, now, **opts):
         from app.ha import HAClient

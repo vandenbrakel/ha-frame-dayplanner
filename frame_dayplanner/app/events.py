@@ -7,7 +7,7 @@ import re
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 
-from .config import Config, EventRule, parse_days
+from .config import Config, EventRule, monthly_matches, parse_days, parse_monthly
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -49,11 +49,17 @@ def rule_matches(rule: EventRule, d: date) -> bool:
         elif m := re.fullmatch(r"(\d{2})-(\d{2})", part):
             if (d.month, d.day) == (int(m.group(1)), int(m.group(2))):
                 return True
+        elif part.startswith(("monthly", "maandelijks")):
+            try:
+                if monthly_matches(parse_monthly(part), d):
+                    return True
+            except ValueError:
+                _LOGGER.warning("Event '%s': cannot understand when='%s'", rule.title, rule.when)
         else:
             try:
                 if d.weekday() in parse_days(part):
                     return True
-            except KeyError:
+            except (KeyError, ValueError):
                 _LOGGER.warning("Event '%s': cannot understand when='%s'", rule.title, rule.when)
     return False
 

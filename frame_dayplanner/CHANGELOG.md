@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.0
+
+- Settings tab on the Dayplanner page with pickers: icon search with previews (Dutch words work too),
+  day toggles, time and date pickers, weather / calendar entity dropdowns, colour pickers
+- Live preview of unsaved settings; saving stores them in the add-on configuration and applies them without restart
+- Events can repeat weekly, monthly (`monthly 15`, `monthly 1st wed`, `monthly last fri`), yearly, or happen once
+- Settings are validated with clear error messages
+
 ## 0.4.2
 
 - Week strip always shows the upcoming days: tiles keep the monday / sunday order,

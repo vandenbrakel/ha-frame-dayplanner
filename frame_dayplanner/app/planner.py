@@ -37,6 +37,7 @@ class Planner:
         self._weather_memo: dict[tuple[date, int], dict] = {}
         self.weather_info: dict = {"entity": None}
         self._history: list[dict] = []
+        self._weather_entity: str | None = None
         self._calendar: list[dict] = []
         self._calendar_key: tuple = ()
         self._calendar_at = 0.0
@@ -44,6 +45,10 @@ class Planner:
     # ------------------------------------------------------------------ data
     async def refresh(self, cfg: Config, now: datetime, force=False) -> None:
         mono = _time.monotonic()
+        if cfg.weather_entity != self._weather_entity:
+            self._weather_entity, self._weather_at = cfg.weather_entity, 0.0
+            self._current, self._forecast, self._history = None, [], []
+            self._weather_memo.clear()
         if cfg.weather_entity and self.ha.available and (force or mono - self._weather_at > WEATHER_TTL):
             self._current = await self.ha.state(cfg.weather_entity)
             midnight = datetime.combine(now.date(), datetime.min.time(), now.tzinfo)

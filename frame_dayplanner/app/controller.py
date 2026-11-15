@@ -98,10 +98,23 @@ class Controller:
             self.push_now()
 
     # --------------------------------------------------------------- render
-    async def render_jpeg(self, when: datetime | None = None, force_refresh=False) -> bytes:
+    def reconfigure(self, cfg: Config) -> None:
+        """Apply new options without restarting."""
+        old, self.cfg = self.cfg, cfg
+        if (old.tv_host, old.tv_port, old.matte) != (cfg.tv_host, cfg.tv_port, cfg.matte):
+            self.tv.close()
+            self.tv = FrameTV(cfg.tv_host, int(cfg.tv_port), cfg.matte)
+        self._retry_at = None
+        if self.state["active"]:
+            self.next_push = self.now()
+        _LOGGER.info("Settings applied")
+        self._wake.set()
+
+    async def render_jpeg(self, when: datetime | None = None, force_refresh=False, cfg: Config | None = None) -> bytes:
+        cfg = cfg or self.cfg
         when = (when or self.now()).replace(second=0, microsecond=0)
-        await self.planner.refresh(self.cfg, when, force=force_refresh)
-        ctx = self.planner.build(self.cfg, when, self.state.get("session", ""))
+        await self.planner.refresh(cfg, when, force=force_refresh)
+        ctx = self.planner.build(cfg, when, self.state.get("session", ""))
         img = await asyncio.to_thread(render, ctx)
         return await asyncio.to_thread(to_jpeg, img)
 

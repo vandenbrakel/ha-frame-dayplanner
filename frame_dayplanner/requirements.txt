@@ -4,3 +4,4 @@ holidays==0.108
 samsungtvws==3.0.7
 websocket-client==1.9.2
 requests==2.34.2
+PyYAML==6.0.3
