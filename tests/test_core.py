@@ -382,9 +382,9 @@ class SlotAndHiddenTests(unittest.TestCase):
         self.assertTrue(clock._soon(voetbal, ctx))            # 60 min before
         ctx.now = at(17, 30)
         self.assertTrue(clock._soon(voetbal, ctx))            # running
-        ctx.now = at(12, 44)
+        ctx.now = at(12, 45)                                   # long prep: screen is on, ring not yet
         self.assertFalse(clock._soon(zwem, ctx))
-        ctx.now = at(12, 45)                                   # 45 leave + 30 prep = 75 min > 60
+        ctx.now = at(13, 0)                                    # always 60 minutes before the start
         self.assertTrue(clock._soon(zwem, ctx))
         ctx.now = at(6, 59)
         self.assertFalse(clock._soon(slot, ctx))

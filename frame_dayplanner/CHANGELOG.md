@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.4
+
+- The outer ring always shows only the coming 60 minutes; a long prep time just switches the
+  planner on earlier (no longer an exception on the ring)
+
 ## 0.9.3
 
 - The outer ring only shows events and slots that start within the next 60 minutes (or are running).

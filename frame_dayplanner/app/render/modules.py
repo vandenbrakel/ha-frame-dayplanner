@@ -235,15 +235,9 @@ class ClockModule(Module):
         return self._end(ev) > now and (getattr(ev, "leave", None) or ev.start) < h1
 
     def _soon(self, ev, ctx) -> bool:
-        """Show on the outer ring only from 60 minutes before the start (or longer when the prep
-        time - leave_before plus the schedule's prep time - is longer) until the end."""
-        lead = 60.0
-        leave = getattr(ev, "leave", None)
-        if ev.source != "slot":
-            prep = float(ctx.cfg.schedule_event_minutes) if ctx.cfg.schedule_events else 0.0
-            leave_min = (ev.start - leave).total_seconds() / 60 if leave else 0.0
-            lead = max(lead, leave_min + prep)
-        return ev.start - timedelta(minutes=lead) <= ctx.now < self._end(ev)
+        """Show on the outer ring only from 60 minutes before the start until the end.
+        (A long prep time only switches the planner on earlier, see the schedule.)"""
+        return ev.start - timedelta(minutes=60) <= ctx.now < self._end(ev)
 
     def _minute_mode(self, slot, now) -> bool:
         """From the full hour of the slot's start (24h) until it ends."""
