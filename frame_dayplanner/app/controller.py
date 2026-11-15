@@ -57,15 +57,29 @@ class Controller:
         t = now.time()
         return any(w.contains(now.weekday(), t) for w in self.cfg.schedule)
 
+    def event_window(self, now: datetime) -> str | None:
+        """Title of the event whose 'show around events' window is active now."""
+        for begin, end, title in self.planner.event_windows(self.cfg, now):
+            if begin <= now < end:
+                return title
+        return None
+
+    def window(self, now: datetime) -> tuple[str, str]:
+        """('schedule' | 'event' | '', detail) for the planned windows (not test runs)."""
+        if self.in_schedule(now):
+            return "schedule", ""
+        title = self.event_window(now)
+        return ("event", title) if title else ("", "")
+
     def desired(self, now: datetime) -> tuple[bool, str]:
         if self.test_until and now < self.test_until:
             return True, "test"
         self.test_until = None
-        scheduled = self.in_schedule(now)
-        if not scheduled:
+        reason, _detail = self.window(now)
+        if not reason:
             self.suppressed = False
-        if scheduled and not self.suppressed:
-            return True, "schedule"
+        if reason and not self.suppressed:
+            return True, reason
         return False, ""
 
     # -------------------------------------------------------------- commands
@@ -79,7 +93,7 @@ class Controller:
 
     def stop(self) -> None:
         self.test_until = None
-        if self.in_schedule(self.now()):
+        if self.window(self.now())[0]:
             self.suppressed = True
         _LOGGER.info("Stop requested")
         self._wake.set()
@@ -192,7 +206,16 @@ class Controller:
         return base.replace(hour=0, minute=0) + timedelta(minutes=minutes)
 
     async def run(self) -> None:
+        last_refresh = 0.0
         while True:
+            if self.cfg.schedule_events and self.cfg.calendar_entities and not self.state["active"]:
+                mono = asyncio.get_running_loop().time()
+                if mono - last_refresh > 120:
+                    last_refresh = mono
+                    try:
+                        await self.planner.refresh(self.cfg, self.now())
+                    except Exception as exc:
+                        _LOGGER.debug("Background refresh failed: %s", exc)
             # start early enough for the upload to finish before the minute changes
             lead_s = max(int(self.cfg.lead_seconds), math.ceil((self.last_push_seconds or 0) + 1))
             lead = timedelta(seconds=min(lead_s, 45))
@@ -259,6 +282,7 @@ class Controller:
             "message": self.message,
             "test_until": self.test_until.isoformat() if self.test_until else None,
             "in_schedule": self.in_schedule(self.now()),
+            "event_window": self.event_window(self.now()),
             "suppressed": self.suppressed,
             "last_push": self.last_push.isoformat() if self.last_push else None,
             "last_push_seconds": self.last_push_seconds,

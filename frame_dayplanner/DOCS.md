@@ -35,8 +35,15 @@ schedule:
     end: "08:30"
 ```
 
-Outside the schedule nothing happens. *Stop & restore* during a scheduled
-window ends it until the next window.
+**Also show around events** (`schedule_events`, on by default): every event
+with a start time switches the planner on outside the schedule too, from
+`schedule_event_minutes` (default 30) before until the event ends. With
+`leave_before` the prep time counts from the time to leave: Zwemles 14:00,
+leave 45 min before, prep 30 min → shown 12:45–15:00. Timed events from your
+HA calendars count too (after the word filters); all-day events don't.
+
+Outside these windows nothing happens. *Stop & restore* during a window ends
+it until the next window.
 
 ## Layout
 

@@ -37,6 +37,8 @@ DEFAULTS: dict = {
     "update_every_minutes": 1,
     "lead_seconds": 4,
     "schedule": [{"days": "mon-fri", "start": "07:00", "end": "08:30"}],
+    "schedule_events": True,
+    "schedule_event_minutes": 30,
     "layout_portrait": [
         {"width": 80, "modules": "day, date, clock, weather, events, sum | word"},
         {"width": 20, "modules": "week"},

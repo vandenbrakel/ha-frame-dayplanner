@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.0
+
+- Schedule: "Also show around events" (`schedule_events`, on by default) switches the planner on
+  for timed events outside the schedule, from the prep time (`schedule_event_minutes`, default 30)
+  before the time to leave / the start until the event ends
+
 ## 0.8.0
 
 - New themes with a real texture: `paper-texture` (paper grain, fibres, soft clouds), `kraft`

@@ -38,6 +38,12 @@ configuration:
   schedule:
     name: Schedule
     description: "When to show the planner. days: mon-fri, sat,sun, daily, ma,wo,vr ... start/end: HH:MM."
+  schedule_events:
+    name: Also show around events
+    description: Events with a start time switch the planner on outside the schedule too, from the prep time before (the time to leave or the start) until the event ends.
+  schedule_event_minutes:
+    name: Prep time before events
+    description: Minutes before the time to leave (or the start) that the planner switches on.
   layout_portrait:
     name: Layout (portrait)
     description: "Columns with a relative width. modules: comma = next row, | = side by side, name:2 = weight. Modules: day, date, clock, time, weather, events, sum, word, week, spacer, line."

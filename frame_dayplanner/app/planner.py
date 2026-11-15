@@ -150,6 +150,18 @@ class Planner:
                 best, best_score = f, score
         return best if best_score is not None and best_score < 30 * 3600 else None
 
+    def event_windows(self, cfg: Config, now: datetime) -> list[tuple[datetime, datetime, str]]:
+        """(begin, end, title) for timed events today: prep time before (leaving / start) until the end."""
+        if not cfg.schedule_events:
+            return []
+        prep = timedelta(minutes=int(cfg.schedule_event_minutes))
+        out = []
+        for d in (now.date() - timedelta(days=1), now.date()):  # yesterday: events running past midnight
+            for ev in events_for_day(cfg, d, now.tzinfo, self._calendar):
+                if ev.start and ev.end:
+                    out.append(((ev.leave or ev.start) - prep, ev.end, ev.title))
+        return out
+
     # --------------------------------------------------------------- context
     def build(self, cfg: Config, now: datetime, session_id: str = "") -> RenderContext:
         strings = t(cfg.language)

@@ -158,12 +158,12 @@ function refreshPreview() {
 async function status() {
   try {
     const s = await call('api/status');
-    $('pill').textContent = s.status === 'idle' ? 'idle' : (s.status === 'test' ? 'test run' : 'scheduled');
+    $('pill').textContent = {idle: 'idle', test: 'test run', event: 'event', schedule: 'scheduled'}[s.status] || s.status;
     $('pill').className = 'pill' + (s.active ? ' on' : '');
     $('msg').textContent = s.message || '';
     const rows = [
       ['TV', s.tv_host || 'not configured'], ['Orientation', s.orientation],
-      ['In schedule', s.in_schedule ? (s.suppressed ? 'yes (stopped manually)' : 'yes') : 'no'],
+      ['In schedule', (s.in_schedule ? 'yes' : s.event_window ? `event: ${s.event_window}` : 'no') + (s.suppressed ? ' (stopped manually)' : '')],
       ['Test until', fmt(s.test_until)], ['Last push', fmt(s.last_push) + (s.last_push_seconds ? ` (${s.last_push_seconds}s)` : '')],
       ['Next push', fmt(s.next_push)], ['Restores art', s.restore_id || '–'],
     ];
@@ -513,6 +513,8 @@ const SPEC = [
     {key: 'schedule', type: 'list', addLabel: '+ Add time window', newItem: {days: 'mon-fri', start: '07:00', end: '08:30'},
       title: (r) => `${r.days || '?'} ${r.start || ''}–${r.end || ''}`,
       item: [{key: 'days', label: 'Days', type: 'days'}, {key: 'start', label: 'From', type: 'time'}, {key: 'end', label: 'To', type: 'time'}]},
+    {key: 'schedule_events', type: 'bool'},
+    {key: 'schedule_event_minutes', type: 'number', min: 0, max: 180, step: 5, suffix: 'minutes before'},
   ]},
   {group: 'Clock', fields: [
     {key: 'clock_style', type: 'select', options: [['analog'], ['digital'], ['both']]},

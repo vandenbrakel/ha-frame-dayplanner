@@ -148,6 +148,46 @@ class MonthlyAndValidationTests(unittest.TestCase):
         build_config({"events": [{"title": "x", "when": "monthly 2 di; 12-24"}]}, strict=True)
 
 
+class EventWindowTests(unittest.TestCase):
+    def _ctrl(self, **opts):
+        import tempfile as _t
+        import os
+
+        os.environ.setdefault("DATA_DIR", _t.mkdtemp())
+        from app.config import build_config
+        from app.controller import Controller
+        from app.ha import HAClient
+
+        ha = HAClient()
+        ha.token = ""
+        return Controller(build_config(opts), ha, TZ)
+
+    def test_events_overrule_schedule(self):
+        ev = [{"title": "Zwemles", "when": "mon", "start": "14:00", "end": "15:00", "leave_before": 45}]
+        sched = [{"days": "mon-fri", "start": "07:00", "end": "08:30"}]
+        c = self._ctrl(schedule=sched, events=ev)
+        at = lambda h, m: datetime(2026, 11, 16, h, m, tzinfo=TZ)  # noqa: E731  monday
+        self.assertEqual(c.desired(at(7, 30)), (True, "schedule"))
+        self.assertEqual(c.desired(at(12, 44)), (False, ""))
+        self.assertEqual(c.desired(at(12, 45)), (True, "event"))   # 14:00 - 45 leave - 30 prep
+        self.assertEqual(c.desired(at(14, 59)), (True, "event"))
+        self.assertEqual(c.desired(at(15, 0)), (False, ""))
+        self.assertEqual(c.event_window(at(13, 0)), "Zwemles")
+        # tuesday: no event
+        self.assertEqual(c.desired(datetime(2026, 11, 17, 13, 0, tzinfo=TZ)), (False, ""))
+
+    def test_setting_off_and_prep_time(self):
+        ev = [{"title": "Voetbal", "when": "mon", "start": "17:00", "end": "18:00"}]
+        at = lambda h, m: datetime(2026, 11, 16, h, m, tzinfo=TZ)  # noqa: E731
+        self.assertEqual(self._ctrl(events=ev, schedule=[], schedule_events=False).desired(at(17, 30)), (False, ""))
+        c = self._ctrl(events=ev, schedule=[], schedule_event_minutes=10)
+        self.assertEqual(c.desired(at(16, 49)), (False, ""))
+        self.assertEqual(c.desired(at(16, 50)), (True, "event"))
+        # events without time never switch it on
+        c = self._ctrl(events=[{"title": "Oma jarig", "when": "mon"}], schedule=[])
+        self.assertEqual(c.desired(at(12, 0)), (False, ""))
+
+
 class SlotAndHiddenTests(unittest.TestCase):
     def _render(self, now, **opts):
         from app.ha import HAClient
