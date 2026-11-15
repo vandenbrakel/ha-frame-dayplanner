@@ -119,7 +119,8 @@ class ClockModule(Module):
         minute_slots = [s for s in slots if self._minute_mode(s, now)]
         hour_items = [e for e in ctx.events if e.timed] if ctx.cfg.clock_event_arcs else []
         hour_items += [s for s in slots if s not in minute_slots]
-        ring = ctx.cfg.clock_event_arcs or bool(ctx.cfg.slots)
+        hour_items = [e for e in hour_items if self._in_half(e, now)]
+        ring = bool(hour_items)  # only reserve the outer ring when there is something on it
         r = outer * (0.83 if ring else 0.98)
 
         # face

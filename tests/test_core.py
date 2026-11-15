@@ -171,6 +171,40 @@ class SlotAndHiddenTests(unittest.TestCase):
         periods = p._weather_periods(cfg, datetime(2026, 11, 16, 7, 0, tzinfo=TZ), {"periods": ["a", "b", "c"]})
         self.assertEqual([x["condition"] for x in periods], ["rainy", "rainy", "rainy"])
 
+    def test_history_uses_last_updated(self):
+        from app.ha import HAClient
+        from app.planner import Planner
+
+        p = Planner(HAClient())
+        # cloudy all day: last_changed stays at midnight, only last_updated moves
+        p._history = [
+            {"state": "cloudy", "attributes": {"temperature": 4}, "last_changed": "2026-11-15T00:00:00+01:00",
+             "last_updated": "2026-11-15T00:00:00+01:00"},
+            {"state": "cloudy", "attributes": {"temperature": 7}, "last_changed": "2026-11-15T00:00:00+01:00",
+             "last_updated": "2026-11-15T08:50:00+01:00"},
+            {"state": "cloudy", "attributes": {"temperature": 10}, "last_changed": "2026-11-15T00:00:00+01:00",
+             "last_updated": "2026-11-15T13:55:00+01:00"},
+            {"state": "cloudy", "attributes": {"temperature": 8}, "last_changed": "2026-11-15T00:00:00+01:00",
+             "last_updated": "2026-11-15T20:00:00+01:00"},
+        ]
+        now = datetime(2026, 11, 15, 21, 0, tzinfo=TZ)
+        self.assertEqual(p._from_history(now, 9)["temperature"], 7)
+        self.assertEqual(p._from_history(now, 14)["temperature"], 10)
+
+    def test_hidden_figure_avoids_text(self):
+        from PIL import ImageChops
+
+        base = dict(clock_slots=[], hidden_size=5)
+        for day in range(15, 22):
+            now = datetime(2026, 11, day, 21, 0, tzinfo=TZ)
+            _, on = self._render(now, **base)
+            _, off = self._render(now, **dict(base, hidden_enabled=False))
+            box = ImageChops.difference(on, off).getbbox()
+            region = off.crop(box).convert("L")
+            bgv = region.getpixel((0, 0))
+            busy = sum(1 for v in region.getdata() if abs(v - bgv) > 40) / (region.width * region.height)
+            self.assertLess(busy, 0.25, f"hidden figure covers too much on day {day}")
+
     def test_hidden_same_spot_all_day_and_own_picture(self):
         from PIL import Image
 

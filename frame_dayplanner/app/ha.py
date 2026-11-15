@@ -132,7 +132,8 @@ class HAClient:
 
         try:
             data = await self._get(f"/history/period/{quote(start.isoformat())}",
-                                   {"filter_entity_id": entity_id, "end_time": end.isoformat()})
+                                   {"filter_entity_id": entity_id, "end_time": end.isoformat(),
+                                    "significant_changes_only": "0"})
             return data[0] if data else []
         except Exception as exc:
             _LOGGER.debug("History for %s failed: %s", entity_id, exc)

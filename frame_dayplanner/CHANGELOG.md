@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.2
+
+- Past weather periods use all history updates (temperature changes too), not only condition changes
+- Hidden figure picks a calm spot instead of covering text
+- Clock only reserves the outer ring when there are arcs to draw (bigger clock otherwise)
+- Upload lead time adapts to the measured upload duration
+
 ## 0.3.1
 
 - Weather periods that have already passed are filled from Home Assistant history

@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import math
 import os
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -177,8 +178,10 @@ class Controller:
         return base.replace(hour=0, minute=0) + timedelta(minutes=minutes)
 
     async def run(self) -> None:
-        lead = timedelta(seconds=max(0, int(self.cfg.lead_seconds)))
         while True:
+            # start early enough for the upload to finish before the minute changes
+            lead_s = max(int(self.cfg.lead_seconds), math.ceil((self.last_push_seconds or 0) + 1))
+            lead = timedelta(seconds=min(lead_s, 45))
             now = self.now()
             want, reason = self.desired(now)
             try:

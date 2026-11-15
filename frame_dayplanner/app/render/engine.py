@@ -134,9 +134,26 @@ def draw_hidden(img: Image.Image, ctx: RenderContext) -> None:
         sprite = sprite.rotate(rng.uniform(-35, 35), resample=Image.BICUBIC, expand=True)
         if rng.random() < 0.5:
             sprite = sprite.transpose(Image.FLIP_LEFT_RIGHT)
+        x, y = _hiding_spot(img, ctx, sprite, rng, margin)
+        img.paste(sprite, (x, y), sprite)
+
+
+def _hiding_spot(img: Image.Image, ctx: RenderContext, sprite: Image.Image, rng: random.Random,
+                 margin: int) -> tuple[int, int]:
+    """Pick a spot that doesn't cover text: try random spots, keep the calmest."""
+    W, H = img.size
+    small = img.convert("L").resize((W // 8, H // 8))
+    bg = Image.new("RGB", (1, 1), ctx.theme["bg"]).convert("L").getpixel((0, 0))
+    candidates = []
+    for _ in range(60):
         x = rng.randint(margin, max(margin, W - sprite.width - margin))
         y = rng.randint(margin, max(margin, H - sprite.height - margin))
-        img.paste(sprite, (x, y), sprite)
+        crop = small.crop((x // 8, y // 8, (x + sprite.width) // 8 + 1, (y + sprite.height) // 8 + 1))
+        busy = sum(1 for p in crop.getdata() if abs(p - bg) > 40) / max(1, crop.width * crop.height)
+        candidates.append((busy, x, y))
+    candidates.sort(key=lambda c: c[0])
+    _busy, x, y = rng.choice(candidates[:4])  # one of the calmest, so it still moves around
+    return x, y
 
 
 def to_jpeg(img: Image.Image, quality: int = 90) -> bytes:

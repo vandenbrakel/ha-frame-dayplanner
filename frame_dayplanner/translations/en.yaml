@@ -34,7 +34,7 @@ configuration:
     description: How often a new frame is pushed. 1 = every minute.
   lead_seconds:
     name: Lead time (seconds)
-    description: Start uploading this many seconds before the minute changes, so the clock flips on time.
+    description: Minimum seconds to start uploading before the minute changes. Grows automatically when uploads take longer.
   schedule:
     name: Schedule
     description: "When to show the planner. days: mon-fri, sat,sun, daily, ma,wo,vr ... start/end: HH:MM."

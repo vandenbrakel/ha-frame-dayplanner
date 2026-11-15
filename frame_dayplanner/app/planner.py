@@ -97,17 +97,21 @@ class Planner:
     def _from_history(self, now: datetime, rep_hour: int) -> dict | None:
         """What the weather entity said at rep_hour today (for periods already past)."""
         target = datetime.combine(now.date(), datetime.min.time(), now.tzinfo).replace(hour=rep_hour)
-        best = None
+        entries = []
         for st in self._history:
             if st.get("state") in (None, "unknown", "unavailable"):
                 continue
-            try:
-                changed = datetime.fromisoformat(st.get("last_changed") or st.get("last_updated"))
+            try:  # last_updated also moves when only the temperature changes
+                at = datetime.fromisoformat(st.get("last_updated") or st.get("last_changed"))
             except (TypeError, ValueError):
                 continue
-            if changed <= target or best is None:
+            entries.append((at, st))
+        entries.sort(key=lambda e: e[0])
+        best = None
+        for at, st in entries:
+            if at <= target or best is None:
                 best = st
-            if changed > target:
+            if at > target:
                 break
         if not best:
             return None
