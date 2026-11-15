@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Frame Dayplanner</title>
+<style>
+  :root { --bg:#f5eedf; --card:#fffaf0; --ink:#2b2622; --muted:#8f8476; --accent:#2f6fd6; --stop:#e0453a; --line:#ddd1bb; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#1c1e23; --card:#272a31; --ink:#f1ede4; --muted:#9a968e; --line:#3a3d44; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.45 system-ui, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 20px 16px; display:grid; gap:20px; grid-template-columns: minmax(0,1fr) minmax(0,1.1fr); }
+  @media (max-width: 760px) { main { grid-template-columns: 1fr; } }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin: 12px 0; }
+  button { border:0; border-radius:10px; padding:10px 16px; font-size:15px; font-weight:600; cursor:pointer; background:var(--accent); color:#fff; }
+  button.secondary { background:transparent; color:var(--ink); border:1px solid var(--line); }
+  button.stop { background:var(--stop); }
+  input { width:80px; padding:9px; border-radius:10px; border:1px solid var(--line); background:transparent; color:var(--ink); font-size:15px; }
+  .pill { display:inline-block; padding:3px 10px; border-radius:99px; font-weight:600; font-size:13px; background:var(--line); }
+  .pill.on { background:#3a9b4a; color:#fff; }
+  dl { display:grid; grid-template-columns: auto 1fr; gap:4px 14px; margin: 12px 0 0; font-size:14px; }
+  dt { color:var(--muted); } dd { margin:0; overflow-wrap:anywhere; }
+  .preview { text-align:center; }
+  .preview img { max-width:100%; max-height:78vh; border-radius:8px; border:1px solid var(--line); box-shadow: 0 6px 24px rgba(0,0,0,.12); }
+  .muted { color:var(--muted); font-size:14px; }
+  code { font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+  <section>
+    <div class="card">
+      <h1>Frame Dayplanner</h1>
+      <div><span id="pill" class="pill">…</span> <span id="msg" class="muted"></span></div>
+      <div class="row">
+        <label for="minutes">Test for</label>
+        <input id="minutes" type="number" min="1" max="1440" value="10"> <span>minutes</span>
+        <button id="test">Start now</button>
+        <button id="stop" class="stop">Stop &amp; restore</button>
+      </div>
+      <div class="row">
+        <button id="refresh" class="secondary">Refresh preview</button>
+        <button id="pair" class="secondary">Connect to TV</button>
+      </div>
+      <dl id="info"></dl>
+    </div>
+    <div class="card" style="margin-top:20px">
+      <strong>Tips</strong>
+      <p class="muted">All settings live on the add-on's <em>Configuration</em> tab. The first time you click <em>Connect to TV</em> (or a session starts), the TV asks to allow “FrameDayplanner”; accept it with the remote.</p>
+      <p class="muted">From automations or dashboard buttons, fire the event <code>frame_dayplanner</code> with data <code>{"action": "test", "minutes": 10}</code> or <code>{"action": "stop"}</code>. Status is in <code>sensor.frame_dayplanner</code>.</p>
+    </div>
+  </section>
+  <section class="card preview">
+    <img id="img" alt="Preview of the planner">
+    <p class="muted">Live preview (not sent to the TV)</p>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const fmt = (iso) => iso ? new Date(iso).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'}) : '–';
+function refreshPreview() { $('img').src = 'api/preview.jpg?t=' + Date.now(); }
+async function call(path, body) {
+  const r = await fetch(path, {method: body === undefined ? 'GET' : 'POST', headers: {'Content-Type': 'application/json'}, body: body === undefined ? undefined : JSON.stringify(body)});
+  return r.json();
+}
+async function status() {
+  try {
+    const s = await call('api/status');
+    $('pill').textContent = s.status === 'idle' ? 'idle' : (s.status === 'test' ? 'test run' : 'scheduled');
+    $('pill').className = 'pill' + (s.active ? ' on' : '');
+    $('msg').textContent = s.message || '';
+    const rows = [
+      ['TV', s.tv_host || 'not configured'], ['Orientation', s.orientation],
+      ['In schedule', s.in_schedule ? (s.suppressed ? 'yes (stopped manually)' : 'yes') : 'no'],
+      ['Test until', fmt(s.test_until)], ['Last push', fmt(s.last_push) + (s.last_push_seconds ? ` (${s.last_push_seconds}s)` : '')],
+      ['Next push', fmt(s.next_push)], ['Restores art', s.restore_id || '–'],
+    ];
+    $('info').innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+  } catch (e) { $('msg').textContent = 'Cannot reach add-on'; }
+}
+$('test').onclick = async () => { await call('api/test', {minutes: Number($('minutes').value) || 10}); status(); };
+$('stop').onclick = async () => { await call('api/stop', {}); status(); };
+$('refresh').onclick = refreshPreview;
+$('pair').onclick = async () => { $('msg').textContent = 'Connecting… check the TV for a prompt'; const r = await call('api/pair', {}); $('msg').textContent = r.message; };
+status(); refreshPreview();
+setInterval(status, 3000);
+setInterval(refreshPreview, 60000);
+</script>
+</body>
+</html>

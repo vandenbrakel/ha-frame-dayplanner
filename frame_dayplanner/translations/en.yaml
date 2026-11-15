@@ -1,0 +1,115 @@
+configuration:
+  tv_host:
+    name: TV IP address
+    description: IP address of the Samsung The Frame (give it a fixed IP in your router).
+  tv_port:
+    name: TV port
+    description: 8002 (secure websocket) works for all recent Frames.
+  orientation:
+    name: TV orientation
+    description: portrait or landscape. Each has its own layout below.
+  resolution:
+    name: Resolution
+    description: 4k is sharpest, 1080p uploads faster.
+  matte:
+    name: Matte
+    description: Frame matte around the image, e.g. none, flexible_polar, shadowbox_polar.
+  language:
+    name: Language
+    description: Language of day/month names and weather labels.
+  theme:
+    name: Theme
+    description: paper (warm), white or dark.
+  only_in_art_mode:
+    name: Only in art mode
+    description: Do nothing while someone is watching TV.
+  restore_previous_art:
+    name: Restore previous art
+    description: Show the art that was on screen before when the schedule or test ends.
+  update_every_minutes:
+    name: Update every (minutes)
+    description: How often a new frame is pushed. 1 = every minute.
+  lead_seconds:
+    name: Lead time (seconds)
+    description: Start uploading this many seconds before the minute changes, so the clock flips on time.
+  schedule:
+    name: Schedule
+    description: "When to show the planner. days: mon-fri, sat,sun, daily, ma,wo,vr ... start/end: HH:MM."
+  layout_portrait:
+    name: Layout (portrait)
+    description: "Columns with a relative width. modules: comma = next row, | = side by side, name:2 = weight. Modules: day, date, clock, time, weather, events, sum, word, week, spacer, line."
+  layout_landscape:
+    name: Layout (landscape)
+    description: Same as portrait layout, used when orientation is landscape.
+  clock_style:
+    name: Clock style
+    description: analog, digital or both.
+  clock_minute_numbers:
+    name: Clock minute numbers
+    description: Show 05, 10, 15 ... around the clock (helps learning to read the clock).
+  clock_event_arcs:
+    name: Clock event arcs
+    description: Show today's timed events as coloured arcs around the clock.
+  weather_entity:
+    name: Weather entity
+    description: A weather entity, e.g. weather.forecast_home. Leave empty to hide weather.
+  events:
+    name: Events
+    description: "Weekly / custom events. when: mon | mon,wed | weekdays | 2026-11-20 | 11-20 (every year) | 2026-12-21..2027-01-04. Optional icon (mdi:swim), start/end (HH:MM), highlight, color (#hex)."
+  calendar_entities:
+    name: Calendars
+    description: Home Assistant calendar entities, e.g. calendar.family.
+  calendar_include_words:
+    name: Calendar include words
+    description: Only show calendar events containing one of these words (empty = all).
+  calendar_exclude_words:
+    name: Calendar exclude words
+    description: Hide calendar events containing one of these words.
+  calendar_icon_rules:
+    name: Icon rules
+    description: "word=icon, e.g. zwem=mdi:swim. Applied to calendar events and holidays."
+  holidays_country:
+    name: Holidays country
+    description: Country code for public holidays (NL, BE, DE, ...). Empty = off.
+  holidays_extra:
+    name: Extra kid days
+    description: Also show Sinterklaas, Sint-Maarten, Moederdag, Vaderdag, Dierendag, Valentijnsdag (NL/BE).
+  max_events:
+    name: Max events
+    description: Maximum number of events shown in the events module.
+  week_colors:
+    name: Week colours
+    description: Seven colours (monday first) for the week strip.
+  sum_operations:
+    name: Sum operators
+    description: "Any of + - x : separated by commas."
+  sum_max:
+    name: Sum maximum
+    description: "Highest number used/result for + and -; highest factor for x and :."
+  sum_terms:
+    name: Sum terms
+    description: Number of numbers in a sum (2-4), for + and -.
+  sum_missing:
+    name: Missing number
+    description: answer = 3 + 4 = ?, random = sometimes 3 + ? = 7.
+  word_patterns:
+    name: Word patterns
+    description: "Klankzuivere woordstructuur, e.g. mkm or mk,km,mkm,mmkm,mkmm (m = medeklinker, k = klinker)."
+  word_max_letters:
+    name: Word max letters
+    description: Maximum number of letters.
+  word_digraphs:
+    name: Allow 2-letter sounds
+    description: Allow aa, oo, ee, oe, ie, ui, ij, ei, eu, ou, au, ch, ng.
+  word_case:
+    name: Word case
+    description: lower or upper case.
+  word_show_sounds:
+    name: Show sounds
+    description: Also show the word split into sounds (v - i - s).
+  word_custom_list:
+    name: Custom words
+    description: Use your own word list instead of the built-in klankzuivere words.
+  puzzle_refresh:
+    name: New sum / word
+    description: daily, hourly or every session.

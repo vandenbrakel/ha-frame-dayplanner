@@ -1,0 +1,139 @@
+name: Frame Dayplanner
+version: "0.1.0"
+slug: frame_dayplanner
+description: Kid-friendly day planner (clock, weather, events, sums, words) pushed to a Samsung The Frame in art mode.
+url: https://github.com/sandervandenbrakel/ha-frame-dayplanner
+arch:
+  - aarch64
+  - amd64
+init: false
+startup: application
+boot: auto
+ingress: true
+ingress_port: 8099
+panel_icon: mdi:calendar-clock
+panel_title: Dayplanner
+homeassistant_api: true
+options:
+  tv_host: ""
+  tv_port: 8002
+  orientation: portrait
+  resolution: 4k
+  matte: none
+  language: nl
+  theme: paper
+  only_in_art_mode: true
+  restore_previous_art: true
+  update_every_minutes: 1
+  lead_seconds: 4
+  schedule:
+    - days: mon-fri
+      start: "07:00"
+      end: "08:30"
+    - days: sat,sun
+      start: "08:00"
+      end: "10:00"
+  layout_portrait:
+    - width: 80
+      modules: "day, date, clock, weather, events, sum | word"
+    - width: 20
+      modules: "week"
+  layout_landscape:
+    - width: 42
+      modules: "day, date, clock"
+    - width: 44
+      modules: "weather, events, sum | word"
+    - width: 14
+      modules: "week"
+  clock_style: analog
+  clock_minute_numbers: false
+  clock_event_arcs: true
+  weather_entity: weather.forecast_home
+  events:
+    - title: Zwemdag
+      when: mon
+      icon: mdi:swim
+      start: "14:00"
+      end: "17:00"
+      highlight: true
+  calendar_entities: []
+  calendar_include_words: []
+  calendar_exclude_words: []
+  calendar_icon_rules:
+    - zwem=mdi:swim
+    - voetbal=mdi:soccer
+    - verjaardag=mdi:cake-variant
+    - school=mdi:school
+  holidays_country: NL
+  holidays_extra: true
+  max_events: 4
+  week_colors: "#2f6fd6, #3a9b4a, #f08a24, #f2c230, #e0453a, #3a3a3a, #3a3a3a"
+  sum_operations: "+"
+  sum_max: 10
+  sum_terms: 2
+  sum_missing: answer
+  word_patterns: mkm
+  word_max_letters: 4
+  word_digraphs: true
+  word_case: lower
+  word_show_sounds: false
+  word_custom_list: []
+  puzzle_refresh: daily
+schema:
+  tv_host: str
+  tv_port: port
+  orientation: list(portrait|landscape)
+  resolution: list(4k|1080p)
+  matte: str
+  language: list(nl|en)
+  theme: list(paper|white|dark)
+  only_in_art_mode: bool
+  restore_previous_art: bool
+  update_every_minutes: int(1,60)
+  lead_seconds: int(0,30)
+  schedule:
+    - days: str
+      start: match(^\d{1,2}:\d{2}$)
+      end: match(^\d{1,2}:\d{2}$)
+  layout_portrait:
+    - width: int(1,100)
+      modules: str
+  layout_landscape:
+    - width: int(1,100)
+      modules: str
+  clock_style: list(analog|digital|both)
+  clock_minute_numbers: bool
+  clock_event_arcs: bool
+  weather_entity: str?
+  events:
+    - title: str
+      when: str
+      icon: str?
+      start: match(^\d{1,2}:\d{2}$)?
+      end: match(^\d{1,2}:\d{2}$)?
+      highlight: bool?
+      color: str?
+  calendar_entities:
+    - str?
+  calendar_include_words:
+    - str?
+  calendar_exclude_words:
+    - str?
+  calendar_icon_rules:
+    - str?
+  holidays_country: str?
+  holidays_extra: bool
+  max_events: int(0,8)
+  week_colors: str
+  sum_operations: str
+  sum_max: int(2,1000)
+  sum_terms: int(2,4)
+  sum_missing: list(answer|random)
+  word_patterns: str
+  word_max_letters: int(1,10)
+  word_digraphs: bool
+  word_case: list(lower|upper)
+  word_show_sounds: bool
+  word_custom_list:
+    - str?
+  puzzle_refresh: list(daily|hourly|session)
