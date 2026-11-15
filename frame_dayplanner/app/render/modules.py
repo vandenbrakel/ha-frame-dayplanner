@@ -155,7 +155,7 @@ class ClockModule(Module):
             if ctx.cfg.clock_event_arcs else []
         # leave slots are already drawn as the lead-in of their event's arc
         hour_items += [s for s in slots if s not in minute_slots and s.source != "leave"]
-        hour_items = [e for e in hour_items if self._in_half(e, now)]
+        hour_items = [e for e in hour_items if self._in_half(e, now) and self._soon(e, ctx)]
         ring = bool(hour_items)  # only reserve the outer ring when there is something on it
         r = outer * (0.83 if ring else 0.98)
 
@@ -233,6 +233,17 @@ class ClockModule(Module):
         """Still to come (or running) and within the current AM/PM half."""
         _h0, h1 = self._half(now)
         return self._end(ev) > now and (getattr(ev, "leave", None) or ev.start) < h1
+
+    def _soon(self, ev, ctx) -> bool:
+        """Show on the outer ring only from 60 minutes before the start (or longer when the prep
+        time - leave_before plus the schedule's prep time - is longer) until the end."""
+        lead = 60.0
+        leave = getattr(ev, "leave", None)
+        if ev.source != "slot":
+            prep = float(ctx.cfg.schedule_event_minutes) if ctx.cfg.schedule_events else 0.0
+            leave_min = (ev.start - leave).total_seconds() / 60 if leave else 0.0
+            lead = max(lead, leave_min + prep)
+        return ev.start - timedelta(minutes=lead) <= ctx.now < self._end(ev)
 
     def _minute_mode(self, slot, now) -> bool:
         """From the full hour of the slot's start (24h) until it ends."""

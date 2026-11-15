@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.3
+
+- The outer ring only shows events and slots that start within the next 60 minutes (or are running).
+  Events with a longer prep time (`leave_before` + the schedule's prep time) appear that much earlier.
+  Without anything on the ring the clock is drawn bigger
+
 ## 0.9.2
 
 - Time rings are coloured by the minutes left until the deadline: green (> 15 min), orange (15-10),

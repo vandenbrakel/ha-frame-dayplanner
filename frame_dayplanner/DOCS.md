@@ -96,7 +96,9 @@ time: before 12:00 only morning slots and events are drawn, after 12:00 only
 afternoon/evening ones. So a slot at 20:15 never shows up at 08:15.
 
 * Outside its own hour, a slot is a coloured arc on the outer ring (hour scale),
-  like the timed events.
+  like the timed events. The outer ring only shows what starts within the next
+  60 minutes (or is running); an event whose prep time (`leave_before` plus the
+  schedule's prep time) is longer appears that much earlier.
 * From the full hour of the slot (08:00 for 08:15–08:25) until it ends, it is
   drawn on the **minute scale**: a coloured band just inside the rim from
   minute 15 to 25. When the minute hand reaches the band it's time to go.

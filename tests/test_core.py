@@ -350,7 +350,7 @@ class SlotAndHiddenTests(unittest.TestCase):
         drawn.clear()
         with mock.patch.object(ClockModule, "_hour_arcs", lambda self, d, cx, cy, r, o, items, ctx:
                                (drawn.append([i.title for i in items]), orig(self, d, cx, cy, r, o, items, ctx))):
-            self._render(datetime(2026, 11, 15, 22, 30, tzinfo=TZ), events=events, clock_slots=[])
+            self._render(datetime(2026, 11, 15, 22, 40, tzinfo=TZ), events=events, clock_slots=[])
         self.assertEqual(drawn, [["TEST"]])  # before that hour: on the hour ring
 
     def test_time_left_colours(self):
@@ -366,6 +366,30 @@ class SlotAndHiddenTests(unittest.TestCase):
         import colorsys
         r, g, b = (v / 255 for v in time_left_color(15))
         self.assertGreater(colorsys.rgb_to_hls(r, g, b)[2], 0.5)
+
+    def test_outer_ring_only_within_the_hour(self):
+        from app.events import Event
+        from app.render.modules import ClockModule
+
+        clock = ClockModule()
+        at = lambda h, m: datetime(2026, 11, 16, h, m, tzinfo=TZ)  # noqa: E731
+        voetbal = Event("Voetbal", date(2026, 11, 16), start=at(17, 0), end=at(18, 0))
+        zwem = Event("Zwemles", date(2026, 11, 16), start=at(14, 0), end=at(15, 0), leave=at(13, 15))
+        slot = Event("School", date(2026, 11, 16), start=at(8, 0), end=at(8, 30), source="slot")
+        ctx, _ = self._render(at(15, 59))
+        self.assertFalse(clock._soon(voetbal, ctx))           # 61 min before
+        ctx.now = at(16, 0)
+        self.assertTrue(clock._soon(voetbal, ctx))            # 60 min before
+        ctx.now = at(17, 30)
+        self.assertTrue(clock._soon(voetbal, ctx))            # running
+        ctx.now = at(12, 44)
+        self.assertFalse(clock._soon(zwem, ctx))
+        ctx.now = at(12, 45)                                   # 45 leave + 30 prep = 75 min > 60
+        self.assertTrue(clock._soon(zwem, ctx))
+        ctx.now = at(6, 59)
+        self.assertFalse(clock._soon(slot, ctx))
+        ctx.now = at(7, 0)
+        self.assertTrue(clock._soon(slot, ctx))
 
     def test_readable_text(self):
         from app.render.canvas import readable_on
