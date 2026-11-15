@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.0
+
+- Colour emoji as icons (~1900, e.g. 🐒 🦒 ⚽ 🎂) for events, slots, icon rules and the hidden figure
+- Icon search covers Material Design Icons and emoji, in English and Dutch (aap, fiets, verjaardag …)
+
 ## 0.5.1
 
 - An event / slot icon can be a letter, number or word (e.g. `A`, `3`, `GYM`); `mdi:...` stays an icon

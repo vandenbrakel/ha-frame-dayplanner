@@ -1,7 +1,10 @@
 """Ingress web UI: status, live preview, test / stop buttons."""
 from __future__ import annotations
 
+import json
 import logging
+import re
+from functools import lru_cache
 from pathlib import Path
 
 from aiohttp import web
@@ -56,19 +59,64 @@ def _labels() -> dict:
         return {}
 
 
-def search_icons(query: str, limit: int = 60) -> list[list]:
+@lru_cache(maxsize=1)
+def _emoji_rows() -> list[list[str]]:
+    try:
+        return json.loads((FONT_DIR / "emoji_index.json").read_text(encoding="utf-8"))
+    except OSError:
+        return []
+
+
+POPULAR_EMOJI = list("🐒🦁🐘🦒🐶🐱🐰🦄🐟🦋⚽🏊🚲🎨🎵🎂🎁🍎🍕🦷🏫📚🚗🚌✈️🏖️🎄🐣")
+
+
+def _mdi(name: str, cp: int) -> dict:
+    return {"v": f"mdi:{name}", "l": name, "t": "mdi", "cp": cp}
+
+
+def _emo(row: list[str]) -> dict:
+    return {"v": row[0], "l": row[2] or row[1], "t": "emoji", "en": row[1]}
+
+
+def search_icons(query: str, limit: int = 60) -> list[dict]:
+    """Search Material Design Icons and colour emoji (English and Dutch names)."""
     cps = _codepoints()
-    q = query.strip().lower().removeprefix("mdi:").replace(" ", "-")
+    rows = _emoji_rows()
+    q = query.strip().lower().removeprefix("mdi:").strip()
     if not q:
-        return [[n, cps[n]] for n in POPULAR_ICONS if n in cps][:limit]
-    synonyms = [n for word, names in SYNONYMS.items() if word.startswith(q) or q.startswith(word)
+        by_char = {r[0]: r for r in rows}
+        emo = [_emo(by_char[e]) for e in POPULAR_EMOJI if e in by_char]
+        return [_mdi(n, cps[n]) for n in POPULAR_ICONS[:30] if n in cps] + emo
+    qd = q.replace(" ", "-")
+
+    # mdi: Dutch synonyms, then names starting with q, then words / substrings
+    synonyms = [n for word, names in SYNONYMS.items() if word.startswith(qd) or qd.startswith(word)
                 for n in names if n in cps]
-    starts = [n for n in sorted(cps) if n.startswith(q) and n not in synonyms]
+    starts = sorted((n for n in cps if n.startswith(qd) and n not in synonyms), key=len)
     seen = set(synonyms) | set(starts)
-    words = sorted(n for n in cps if f"-{q}" in n and n not in seen)
-    rest = sorted(n for n in cps if q in n and n not in seen and n not in words)
-    names = list(dict.fromkeys(synonyms)) + sorted(starts, key=len)[:limit] + words + rest
-    return [[n, cps[n]] for n in names[:limit]]
+    words = sorted(n for n in cps if f"-{qd}" in n and n not in seen)
+    rest = sorted(n for n in cps if qd in n and n not in seen and n not in words)
+    mdi_hits = list(dict.fromkeys(synonyms + starts)) + words + rest
+
+    # emoji: name (en / nl) starting with q, a word of the name, then keywords
+    def score(r):
+        names = f"{r[1]} {r[2]}".lower()
+        if any(n.startswith(q) for n in (r[1].lower(), r[2].lower())):
+            return 0
+        if re.search(rf"\b{re.escape(q)}", names):
+            return 1
+        if re.search(rf"\b{re.escape(q)}", r[3]):
+            return 2
+        return 3 if q in names else None
+    scored = sorted(((sc, i) for i, r in enumerate(rows) if (sc := score(r)) is not None))
+    emoji_hits = [rows[i] for _sc, i in scored]
+    strong = [r for r in emoji_hits if score(r) <= 1]
+    weak = [r for r in emoji_hits if score(r) > 1]
+
+    # interleave so both kinds show up near the top
+    out = [_emo(r) for r in strong[:12]] + [_mdi(n, cps[n]) for n in mdi_hits[:24]]
+    out += [_emo(r) for r in strong[12:] + weak] + [_mdi(n, cps[n]) for n in mdi_hits[24:]]
+    return out[:limit]
 
 
 def make_app(ctrl: Controller) -> web.Application:

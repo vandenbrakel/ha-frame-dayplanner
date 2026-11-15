@@ -5,7 +5,7 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
-from PIL import ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont
 
 FONT_DIR = Path(__file__).resolve().parent.parent / "fonts"
 
@@ -44,6 +44,45 @@ def icon_char(name: str) -> str | None:
         return None
     cp = _codepoints().get(name)
     return chr(cp) if cp else None
+
+
+# ---------------------------------------------------------------- emoji
+@lru_cache(maxsize=1)
+def _emoji() -> dict[str, str]:
+    """emoji (without variation selector) -> emoji as listed in the index."""
+    try:
+        rows = json.loads((FONT_DIR / "emoji_index.json").read_text(encoding="utf-8"))
+    except OSError:
+        return {}
+    return {r[0].replace("\ufe0f", ""): r[0] for r in rows}
+
+
+def emoji_value(name: str) -> str | None:
+    """The emoji if name is one ('🐒', also without/with U+FE0F), else None."""
+    key = (name or "").strip().replace("\ufe0f", "")
+    return _emoji().get(key) if key and not key.isascii() else None
+
+
+@lru_cache(maxsize=1)
+def _emoji_font() -> ImageFont.FreeTypeFont:
+    return ImageFont.truetype(str(FONT_DIR / "NotoColorEmoji.ttf"), 109)  # bitmap font: only size 109
+
+
+@lru_cache(maxsize=512)
+def emoji_sprite(emoji: str, size: int) -> Image.Image:
+    """Colour emoji as an RGBA image that fits in size x size."""
+    f = _emoji_font()
+    l, t, r, b = ImageDraw.Draw(Image.new("RGBA", (1, 1))).textbbox((0, 0), emoji, font=f, embedded_color=True)
+    im = Image.new("RGBA", (max(1, r - l), max(1, b - t)), (0, 0, 0, 0))
+    ImageDraw.Draw(im).text((-l, -t), emoji, font=f, embedded_color=True)
+    im = im.crop(im.getbbox() or (0, 0, im.width, im.height))
+    scale = size / max(im.width, im.height)
+    return im.resize((max(1, round(im.width * scale)), max(1, round(im.height * scale))), Image.LANCZOS)
+
+
+def bubble_color(icon: str, color):
+    """Colour emoji read better on a light bubble than on a saturated one."""
+    return mix(color, "#ffffff", 0.75) if emoji_value(icon) else color
 
 
 def icon_text(name: str) -> str:
@@ -99,7 +138,13 @@ def draw_text_centered(draw, box, text, fill, bold=False, max_size=None, size=No
 
 
 def draw_icon(draw, name: str, center: tuple[float, float], size: float, fill) -> bool:
-    """Draw an icon ('mdi:swim') or, for anything else, the letter/word itself."""
+    """Draw an icon ('mdi:swim'), a colour emoji ('🐒') or, for anything else, the letter/word itself."""
+    emoji = emoji_value(name)
+    if emoji:
+        sprite = emoji_sprite(emoji, max(4, int(size * 1.1)))
+        pos = (int(center[0] - sprite.width / 2), int(center[1] - sprite.height / 2))
+        draw._image.paste(sprite, pos, sprite)  # ImageDraw cannot scale bitmap emoji itself
+        return True
     ch = None if (name or "").strip().lower().startswith("text:") else icon_char(name)
     if ch:
         draw.text(center, ch, font=icon_font(int(size)), fill=fill, anchor="mm")

@@ -57,6 +57,7 @@
   .days button { padding:6px 0; width:40px; background:transparent; color:var(--ink); border:1px solid var(--line); font-size:14px; }
   .days button.on { background:var(--accent); color:#fff; border-color:var(--accent); }
   .glyph { font-family: mdi; font-size: 22px; line-height: 1; display:inline-block; width: 26px; text-align:center; }
+  .glyph.as-emoji { font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; font-size: 20px; }
   .glyph.as-text { font-family: system-ui, sans-serif; font-weight: 800; font-size: 12px; width: auto; min-width: 26px; max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .iconpick { position:relative; display:flex; align-items:center; gap:6px; }
   .iconpick input { flex: 1; }
@@ -232,16 +233,22 @@ function formatDays(set) {
 
 /* ----------------------------------------------------------------- widgets */
 const iconCache = new Map();  // name -> codepoint
+// results: {v: 'mdi:swim' | '🐒', l: label, t: 'mdi' | 'emoji', cp?: codepoint}
 async function searchIcons(q) {
   const res = await call('api/icons?q=' + encodeURIComponent(q));
-  for (const [n, cp] of res) iconCache.set(n, cp);
+  for (const r of res) if (r.t === 'mdi') iconCache.set(r.l, r.cp);
   return res;
+}
+const isEmoji = (s) => /\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(s);
+function glyphEl(r) {
+  return r.t === 'emoji' ? el('span', {class: 'glyph as-emoji'}, r.v) : el('span', {class: 'glyph'}, String.fromCodePoint(r.cp));
 }
 // same rule as the add-on: 'mdi:x' (or a bare lower-case icon name) is an icon, anything else is text
 async function glyphFor(value) {
   const raw = String(value || '').trim();
   if (!raw) return {text: ''};
   if (/^text:/i.test(raw)) return {text: raw.slice(5).trim()};
+  if (isEmoji(raw)) return {emoji: raw};
   const isMdi = /^mdi:/i.test(raw);
   const name = isMdi ? raw.slice(4).toLowerCase() : raw;
   if (isMdi || name === name.toLowerCase()) {
@@ -252,8 +259,9 @@ async function glyphFor(value) {
   return {text: raw};
 }
 function setPreview(span, g) {
-  span.textContent = g.glyph || g.text || '';
-  span.classList.toggle('as-text', !g.glyph);
+  span.textContent = g.glyph || g.emoji || g.text || '';
+  span.classList.toggle('as-text', !g.glyph && !g.emoji);
+  span.classList.toggle('as-emoji', !!g.emoji);
 }
 const entityCache = {};
 function entitiesFor(domain) { return entityCache[domain] ??= call('api/entities?domain=' + domain); }
@@ -357,23 +365,23 @@ const W = {
     const drop = el('div', {class: 'dropdown', hidden: true});
     let items = [], sel = -1, timer;
     const setGlyph = async () => setPreview(glyph, await glyphFor(input.value));
-    const choose = (name) => {
+    const choose = (item) => {
       const typed = input.value.trim();
       // a typed word that is also an icon name ('swim') is stored as 'text:swim' to keep it text
-      input.value = name !== null ? 'mdi:' + name : (typed === typed.toLowerCase() && iconCache.has(typed) ? 'text:' + typed : typed);
+      input.value = item.t !== 'text' ? item.v : (typed === typed.toLowerCase() && iconCache.has(typed) ? 'text:' + typed : typed);
       on(input.value); setGlyph(); drop.hidden = true;
     };
     const show = async () => {
       const typed = input.value.trim();
-      items = await searchIcons(typed);
+      items = await searchIcons(isEmoji(typed) ? '' : typed);
       // offer the typed text itself as the 'icon' (a letter or word)
-      if (o.textOk !== false && typed && !/^mdi:/i.test(typed)) items = [[null, typed], ...items];
+      if (o.textOk !== false && typed && !/^mdi:/i.test(typed) && !isEmoji(typed)) items = [{v: typed, l: typed, t: 'text'}, ...items];
       sel = -1;
-      drop.replaceChildren(...items.map(([n, cp]) => n === null
-        ? el('button', {type: 'button', title: 'Show this text instead of an icon', onmousedown: (e) => { e.preventDefault(); choose(null); }},
-            el('span', {class: 'glyph as-text'}, cp), `use “${cp}” as text`)
-        : el('button', {type: 'button', title: n, onmousedown: (e) => { e.preventDefault(); choose(n); }},
-            el('span', {class: 'glyph'}, String.fromCodePoint(cp)), n)));
+      drop.replaceChildren(...items.map((it) => it.t === 'text'
+        ? el('button', {type: 'button', title: 'Show this text instead of an icon', onmousedown: (e) => { e.preventDefault(); choose(it); }},
+            el('span', {class: 'glyph as-text'}, it.v), `use “${it.v}” as text`)
+        : el('button', {type: 'button', title: it.t === 'emoji' ? `${it.l} (${it.en})` : it.l, onmousedown: (e) => { e.preventDefault(); choose(it); }},
+            glyphEl(it), it.l)));
       drop.hidden = !items.length;
     };
     input.addEventListener('focus', show);
@@ -386,7 +394,7 @@ const W = {
         sel = Math.max(0, Math.min(items.length - 1, sel + (e.key === 'ArrowDown' ? 1 : -1)));
         [...drop.children].forEach((b, i) => b.classList.toggle('sel', i === sel));
         drop.children[sel]?.scrollIntoView({block: 'nearest'});
-      } else if (e.key === 'Enter' && sel >= 0) { e.preventDefault(); choose(items[sel][0]); }
+      } else if (e.key === 'Enter' && sel >= 0) { e.preventDefault(); choose(items[sel]); }
       else if (e.key === 'Escape') drop.hidden = true;
     });
     setGlyph();
@@ -398,11 +406,12 @@ const W = {
     const emit = () => on(list.join(', '));
     const render = async () => {
       chips.replaceChildren(...await Promise.all(list.map(async (name, i) => el('span', {class: 'chip'},
-        el('span', {class: 'glyph', style: 'font-size:18px;width:20px'}, (await glyphFor(name)).glyph || '?'), name.replace(/^mdi:/, ''),
+        await (async () => { const g = await glyphFor(name); const sp = el('span', {class: 'glyph', style: 'font-size:18px;width:20px'}); setPreview(sp, g.glyph || g.emoji ? g : {text: '?'}); return sp; })(),
+        isEmoji(name) ? '' : name.replace(/^mdi:/, ''),
         el('button', {type: 'button', title: 'Remove', onclick: () => { list.splice(i, 1); emit(); render(); }}, '×')))));
     };
     const adder = W.icon('', (x) => {
-      if (/^mdi:[a-z0-9-]+$/.test(x) && iconCache.has(x.slice(4))) {
+      if ((/^mdi:[a-z0-9-]+$/.test(x) && iconCache.has(x.slice(4))) || isEmoji(x)) {
         list.push(x); emit(); render(); adder.querySelector('input').value = ''; adder.querySelector('.glyph').textContent = '';
       }
     }, {placeholder: 'add an icon…', textOk: false});

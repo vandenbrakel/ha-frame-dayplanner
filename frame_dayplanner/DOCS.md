@@ -104,7 +104,7 @@ afternoon/evening ones. So a slot at 20:15 never shows up at 08:15.
 
 Every day a small figure is hidden in an empty spot on the planner (never on text, tiles or the clock) (a new spot each
 day, or each hour/session with `puzzle_refresh`). By default it is one of the
-`hidden_icons`. To use your own picture, for example a drawing by your child, put a
+`hidden_icons` (icons or emoji, e.g. `🐒`). To use your own picture, for example a drawing by your child, put a
 PNG with a transparent background in `/share/dayplanner/` (via the Samba or
 File editor add-on) and set `hidden_image: /share/dayplanner/figure.png`.
 A folder works too; a different picture is picked every day.
@@ -132,8 +132,10 @@ events:
     when: 2026-12-19..2027-01-03
 ```
 
-**Icons:** `icon` is a Material Design Icon (`mdi:swim`), or a letter, number or
-short word that is shown in the bubble instead (`A`, `3`, `GYM`). A lower-case word
+**Icons:** `icon` is a Material Design Icon (`mdi:swim`), a colour emoji
+(`🐒`, `⚽`, `🎂`; about 1900 available) or a letter, number or short word that
+is shown in the bubble instead (`A`, `3`, `GYM`). The icon search on the
+Settings tab finds both icons and emoji, in English and Dutch (*aap*, *fiets*). A lower-case word
 that is also an icon name is an icon; write `text:swim` to show the word.
 This works for events, clock slots and icon rules.
 

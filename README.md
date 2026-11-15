@@ -36,4 +36,5 @@ cd frame_dayplanner && DATA_DIR=/tmp/fd HA_URL=http://homeassistant.local:8123 H
 
 * [Andika](https://software.sil.org/andika/) font by SIL (OFL), designed for beginning readers
 * [Material Design Icons](https://pictogrammers.com/library/mdi/) (Apache 2.0)
+* [Noto Color Emoji](https://github.com/googlefonts/noto-emoji) (OFL 1.1); emoji names from Unicode emoji-test and CLDR (Unicode license)
 * [samsungtvws](https://github.com/xchwarze/samsung-tv-ws-api) for the Frame art API

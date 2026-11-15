@@ -216,6 +216,25 @@ class SlotAndHiddenTests(unittest.TestCase):
         self._render(datetime(2026, 11, 16, 8, 5, tzinfo=TZ), events=events,
                      clock_slots=[{"label": "School", "days": "mon", "start": "08:15", "end": "08:25", "icon": "S"}])
 
+    def test_emoji_icons_and_search(self):
+        from PIL import ImageDraw
+
+        from app.render.canvas import draw_icon, emoji_value
+        from app.web import search_icons
+
+        self.assertEqual(emoji_value("🐒"), "🐒")
+        self.assertIsNone(emoji_value("mdi:swim"))
+        self.assertIsNone(emoji_value("A"))
+        img = Image.new("RGB", (200, 200), "white")
+        self.assertTrue(draw_icon(ImageDraw.Draw(img), "🐒", (100, 100), 120, "black"))
+        colours = img.getcolors(maxcolors=1 << 16)
+        self.assertGreater(len(colours), 20)  # drawn in colour, not as a single-colour glyph
+        self.assertEqual(search_icons("aap")[0]["v"], "🐒")          # Dutch name
+        self.assertIn("🐵", [r["v"] for r in search_icons("monkey")])
+        self.assertIn("mdi:swim", [r["v"] for r in search_icons("swim")])
+        events = [{"title": "Dierentuin", "when": "mon", "icon": "🐒", "start": "10:00", "end": "12:00"}]
+        self._render(datetime(2026, 11, 16, 8, 5, tzinfo=TZ), events=events, hidden_icons="🐒, mdi:owl")
+
     def test_readable_text(self):
         from app.render.canvas import readable_on
 

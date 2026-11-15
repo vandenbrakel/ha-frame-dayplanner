@@ -67,7 +67,7 @@ configuration:
     description: Hide a small figure in an empty spot (never on text or tiles), a new spot every day. Can you find it?
   hidden_icons:
     name: Hidden figure icons
-    description: Comma-separated mdi icons; one is picked every day.
+    description: Comma-separated icons or emoji (mdi:owl, 🐒); one is picked every day.
   hidden_image:
     name: Own hidden picture
     description: Path to your own PNG (with transparent background) or a folder of pictures, e.g. /share/dayplanner/hidden. Overrides the icons.
@@ -85,7 +85,7 @@ configuration:
     description: A weather entity, e.g. weather.forecast_home. Leave empty to hide weather.
   events:
     name: Events
-    description: "Repeating or one-time events. when: weekly 'mon' or 'mon,wed' | monthly 'monthly 15' or 'monthly 1st wed' / 'monthly last fri' | yearly '11-20' | once '2026-11-20' | period '2026-12-21..2027-01-04'. Optional icon (mdi:swim, or a letter / word like A or GYM), start/end (HH:MM), highlight, color (#hex). Easier: use the Settings tab on the Dayplanner page."
+    description: "Repeating or one-time events. when: weekly 'mon' or 'mon,wed' | monthly 'monthly 15' or 'monthly 1st wed' / 'monthly last fri' | yearly '11-20' | once '2026-11-20' | period '2026-12-21..2027-01-04'. Optional icon (mdi:swim, an emoji like 🐒, or a letter / word like A or GYM), start/end (HH:MM), highlight, color (#hex). Easier: use the Settings tab on the Dayplanner page."
   calendar_entities:
     name: Calendars
     description: Home Assistant calendar entities, e.g. calendar.family.

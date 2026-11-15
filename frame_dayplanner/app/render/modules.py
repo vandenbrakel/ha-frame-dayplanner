@@ -8,7 +8,7 @@ from __future__ import annotations
 import math
 from datetime import timedelta
 
-from .canvas import (draw_icon, draw_text_centered, fit_size, font, hex_to_rgb, mix,
+from .canvas import (bubble_color, draw_icon, draw_text_centered, fit_size, font, hex_to_rgb, mix,
                      readable_on, text_size)
 
 WEATHER_ICONS = {
@@ -268,8 +268,9 @@ class ClockModule(Module):
         pill = (sx - pad * 2, y0 + pad * 0.5, sx + total + pad * 2, y1 - pad * 0.5)
         draw.rounded_rectangle(pill, radius=(pill[3] - pill[1]) / 2, fill=color if active else th["panel"])
         icx = sx + ir
-        draw.ellipse((icx - ir, cy - ir, icx + ir, cy + ir), fill=on_color if active else color)
-        draw_icon(draw, slot.icon or "clock-outline", (icx, cy), ir * 1.3, color if active else on_color)
+        icon = slot.icon or "clock-outline"
+        draw.ellipse((icx - ir, cy - ir, icx + ir, cy + ir), fill=on_color if active else bubble_color(icon, color))
+        draw_icon(draw, icon, (icx, cy), ir * 1.3, color if active else on_color)
         draw.text((sx + 2 * ir + pad * 1.2, cy), text, font=f, fill=on_color if active else th["ink"], anchor="lm")
 
     def _hour_arcs(self, draw, cx, cy, r, outer, items, ctx):
@@ -295,7 +296,7 @@ class ClockModule(Module):
             ra = math.radians((a0 + a1) / 2)  # icon bubble in the middle
             px, py = cx + ring_r * math.cos(ra), cy + ring_r * math.sin(ra)
             br = width * 1.15
-            draw.ellipse((px - br, py - br, px + br, py + br), fill=color)
+            draw.ellipse((px - br, py - br, px + br, py + br), fill=bubble_color(ev.icon, color))
             draw_icon(draw, ev.icon, (px, py), br * 1.35, readable_on(color))
 
 
@@ -376,7 +377,7 @@ class EventsModule(Module):
         total = 2 * ir + pad * 1.5 + tw
         sx = x0 + ((x1 - x0) - total) / 2
         icx = sx + ir
-        bubble = ev.color or th["accent"]
+        bubble = bubble_color(ev.icon, ev.color or th["accent"])
         draw.ellipse((icx - ir, cy - ir, icx + ir, cy + ir), fill=bubble)
         draw_icon(draw, ev.icon, (icx, cy), ir * 1.25, readable_on(bubble))
         draw.text((sx + 2 * ir + pad * 1.5, cy), text, font=f, fill=th["ink"], anchor="lm")

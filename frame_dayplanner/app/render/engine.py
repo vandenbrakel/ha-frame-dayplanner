@@ -13,7 +13,7 @@ from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 from ..config import Config
 from ..events import Event
-from .canvas import THEMES, icon_char, icon_font
+from .canvas import THEMES, emoji_sprite, emoji_value, icon_char, icon_font
 from .modules import REGISTRY
 
 _LOGGER = logging.getLogger(__name__)
@@ -112,10 +112,13 @@ def _hidden_sprite(ctx: RenderContext, rng: random.Random, size: int) -> Image.I
             src.thumbnail((size, size), Image.LANCZOS)
             return src
         _LOGGER.warning("hidden_image %s not found, using an icon", path)
-    icons = [i.strip() for i in str(ctx.cfg.hidden_icons).split(",") if icon_char(i.strip())]
+    icons = [i.strip() for i in str(ctx.cfg.hidden_icons).split(",") if icon_char(i.strip()) or emoji_value(i)]
     if not icons:
         return None
-    ch = icon_char(rng.choice(icons))
+    choice = rng.choice(icons)
+    if emoji_value(choice):
+        return emoji_sprite(emoji_value(choice), size).copy()
+    ch = icon_char(choice)
     sprite = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     ImageDraw.Draw(sprite).text((size / 2, size / 2), ch, font=icon_font(size), fill=ctx.cfg.hidden_color,
                                 anchor="mm")
