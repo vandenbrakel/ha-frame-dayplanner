@@ -119,7 +119,7 @@ events:
     icon: mdi:swim           # any Material Design Icon
     start: "14:00"           # optional: shows an arc on the clock
     end: "17:00"
-    leave_before: 15         # optional: green -> red lead-in on the clock from 13:45 (time to leave)
+    leave_before: 15         # optional: time to leave, see below
     highlight: true          # big, in capitals
   - title: Spelen met Fedde
     when: 2026-11-20         # once
@@ -139,6 +139,12 @@ is shown in the bubble instead (`A`, `3`, `GYM`). The icon search on the
 Settings tab finds both icons and emoji, in English and Dutch (*aap*, *fiets*). A lower-case word
 that is also an icon name is an icon; write `text:swim` to show the word.
 This works for events, clock slots and icon rules.
+
+**Time to leave:** with `start` and `leave_before` (minutes) the clock shows a
+green → yellow → orange → red lead-in from the time to leave until the start,
+before the event's own arc. In the hour of leaving it also works like a time
+slot: the minute band and a label *Zwemles: vertrekken (nog 10 min)* below the
+clock.
 
 Multiple rules in one `when` can be separated with `;`. `monthly 31` means the
 last day of every month. The **Settings** tab on the Dayplanner page has a picker

@@ -8,6 +8,7 @@ STRINGS = {
                    "augustus", "september", "oktober", "november", "december"],
         "periods": ["ochtend", "middag", "avond"],
         "in_minutes": "nog {n} min",
+        "leave_label": "{title}: vertrekken",
     },
     "en": {
         "days": ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"],
@@ -16,6 +17,7 @@ STRINGS = {
                    "august", "september", "october", "november", "december"],
         "periods": ["morning", "afternoon", "evening"],
         "in_minutes": "in {n} min",
+        "leave_label": "{title}: time to leave",
     },
 }
 

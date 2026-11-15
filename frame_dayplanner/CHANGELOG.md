@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.1
+
+- Events with `leave_before` also get the minute band (from the time to leave until the start) and a
+  "…: vertrekken" label with countdown below the clock, like time slots
+- Time-left colours run green -> yellow -> orange -> red (brighter in between)
+
 ## 0.7.0
 
 - Events: `leave_before` (minutes). The clock shows a green -> orange -> red lead-in from the

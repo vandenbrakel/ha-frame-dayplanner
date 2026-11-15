@@ -171,6 +171,12 @@ class Planner:
                 if end < start:
                     end += timedelta(days=1)
                 slots.append(Event(sl.label, d, sl.icon or "clock-outline", sl.color or "#e0453a", start, end, False, "slot"))
+        # events with 'leave before' get an automatic slot from leaving time until the start
+        for ev in events:
+            if ev.leave and ev.start:
+                label = strings["leave_label"].format(title=ev.title)
+                slots.append(Event(label, ev.day, ev.icon, ev.color, ev.leave, ev.start, False, "leave"))
+        slots.sort(key=lambda s: s.start)
         seed = puzzles.seed_for(now, cfg.puzzle_refresh, session_id)
         word = puzzles.pick_word(cfg, seed)
         return RenderContext(

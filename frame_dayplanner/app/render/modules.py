@@ -36,11 +36,11 @@ def rounded_panel(draw, box, ctx, fill=None, radius=None):
     draw.rounded_rectangle(box, radius=r, fill=fill or ctx.theme["panel"])
 
 
-GRADIENT = ["#3a9b4a", "#f08a24", "#e0453a"]  # green -> orange -> red
+GRADIENT = ["#3a9b4a", "#f2c230", "#f08a24", "#e0453a"]  # green -> yellow -> orange -> red
 
 
 def gradient(fraction: float):
-    """Colour on the green -> orange -> red scale (0 = start, 1 = end)."""
+    """Colour on the green -> yellow -> orange -> red scale (0 = start, 1 = end)."""
     f = max(0.0, min(1.0, fraction)) * (len(GRADIENT) - 1)
     i = min(int(f), len(GRADIENT) - 2)
     return mix(GRADIENT[i], GRADIENT[i + 1], f - i)
@@ -116,7 +116,10 @@ class ClockModule(Module):
         ink = th["ink"]
         now = ctx.now
 
-        slots = [s for s in ctx.slots if self._in_half(s, now) or self._minute_mode(s, now)][:3]
+        # automatic 'leave' slots (from events) only show up close to leaving; own slots whole half-day
+        slots = [s for s in ctx.slots
+                 if self._minute_mode(s, now) or self._upcoming(s, ctx)
+                 or (s.source != "leave" and self._in_half(s, now))][:3]
         if slots:  # legend below the clock
             row_h = (y1 - y0) * 0.115
             legend_top = y1 - row_h * len(slots)
@@ -128,7 +131,8 @@ class ClockModule(Module):
         outer = min(x1 - x0, y1 - y0) / 2
         minute_slots = [s for s in slots if self._minute_mode(s, now)]
         hour_items = [e for e in ctx.events if e.timed] if ctx.cfg.clock_event_arcs else []
-        hour_items += [s for s in slots if s not in minute_slots]
+        # leave slots are already drawn as the lead-in of their event's arc
+        hour_items += [s for s in slots if s not in minute_slots and s.source != "leave"]
         hour_items = [e for e in hour_items if self._in_half(e, now)]
         ring = bool(hour_items)  # only reserve the outer ring when there is something on it
         r = outer * (0.83 if ring else 0.98)

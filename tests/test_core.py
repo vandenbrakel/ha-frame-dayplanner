@@ -251,6 +251,20 @@ class SlotAndHiddenTests(unittest.TestCase):
                 {"title": "Zwemles", "when": "mon", "start": "14:00", "end": "15:00", "leave_before": 45},
                 {"title": "Lunch", "when": "mon", "start": "12:10", "end": "12:40", "leave_before": 30}])
 
+    def test_leave_before_minute_band_and_label(self):
+        events = [{"title": "Zwemles", "when": "mon", "start": "14:00", "end": "15:00", "leave_before": 45}]
+        ctx, _ = self._render(datetime(2026, 11, 16, 13, 30, tzinfo=TZ), events=events, clock_slots=[])
+        leave = [s for s in ctx.slots if s.source == "leave"]
+        self.assertEqual(len(leave), 1)
+        self.assertEqual((leave[0].start.hour, leave[0].start.minute, leave[0].end.hour), (13, 15, 14))
+        self.assertEqual(leave[0].title, "Zwemles: vertrekken")
+        from app.render.modules import ClockModule
+
+        clock = ClockModule()
+        self.assertTrue(clock._minute_mode(leave[0], datetime(2026, 11, 16, 13, 30, tzinfo=TZ)))
+        self.assertFalse(clock._minute_mode(leave[0], datetime(2026, 11, 16, 12, 30, tzinfo=TZ)))
+        self.assertFalse(clock._minute_mode(leave[0], datetime(2026, 11, 16, 14, 0, tzinfo=TZ)))
+
     def test_readable_text(self):
         from app.render.canvas import readable_on
 
