@@ -32,6 +32,8 @@ async def amain() -> None:
     _LOGGER.info("Frame Dayplanner starting: TV=%s orientation=%s tz=%s, %d schedule window(s)",
                  cfg.tv_host or "-", cfg.orientation, tz, len(cfg.schedule))
 
+    if not ha.available:
+        _LOGGER.warning("No Home Assistant token: weather, calendars and the status sensor are disabled")
     ctrl = Controller(cfg, ha, tz)
     runner = web.AppRunner(make_app(ctrl))
     await runner.setup()

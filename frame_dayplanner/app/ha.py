@@ -18,6 +18,22 @@ import aiohttp
 _LOGGER = logging.getLogger(__name__)
 
 
+def _supervisor_token() -> str:
+    """SUPERVISOR_TOKEN from the environment, or from s6-overlay's saved
+    container environment (the CMD may be started without it)."""
+    for name in ("SUPERVISOR_TOKEN", "HASSIO_TOKEN"):
+        if os.environ.get(name):
+            return os.environ[name]
+        try:
+            with open(f"/run/s6/container_environment/{name}", encoding="utf-8") as f:
+                value = f.read().strip()
+            if value:
+                return value
+        except OSError:
+            pass
+    return ""
+
+
 class HAClient:
     def __init__(self) -> None:
         if os.environ.get("HA_URL"):
@@ -28,7 +44,7 @@ class HAClient:
         else:
             self.rest = "http://supervisor/core/api"
             self.ws_url = "ws://supervisor/core/websocket"
-            self.token = os.environ.get("SUPERVISOR_TOKEN", "")
+            self.token = _supervisor_token()
         self._session: aiohttp.ClientSession | None = None
 
     @property
@@ -109,6 +125,18 @@ class HAClient:
                 "forecasts": [n for bit, n in ((2, "hourly"), (4, "twice_daily"), (1, "daily")) if feats & bit],
             })
         return out
+
+    async def history(self, entity_id: str, start: datetime, end: datetime) -> list[dict]:
+        """State changes of one entity between start and end (with attributes)."""
+        from urllib.parse import quote
+
+        try:
+            data = await self._get(f"/history/period/{quote(start.isoformat())}",
+                                   {"filter_entity_id": entity_id, "end_time": end.isoformat()})
+            return data[0] if data else []
+        except Exception as exc:
+            _LOGGER.debug("History for %s failed: %s", entity_id, exc)
+            return []
 
     async def calendar(self, entity_id: str, start: datetime, end: datetime) -> list[dict]:
         try:

@@ -28,6 +28,7 @@ class Planner:
         self._weather_at = 0.0
         self._weather_memo: dict[tuple[date, int], dict] = {}
         self.weather_info: dict = {"entity": None}
+        self._history: list[dict] = []
         self._calendar: list[dict] = []
         self._calendar_key: tuple = ()
         self._calendar_at = 0.0
@@ -37,6 +38,8 @@ class Planner:
         mono = _time.monotonic()
         if cfg.weather_entity and self.ha.available and (force or mono - self._weather_at > WEATHER_TTL):
             self._current = await self.ha.state(cfg.weather_entity)
+            midnight = datetime.combine(now.date(), datetime.min.time(), now.tzinfo)
+            self._history = await self.ha.history(cfg.weather_entity, midnight, now)
             kind, self._forecast, errors = await self.ha.forecast(cfg.weather_entity)
             self._weather_at = mono
             self.weather_info = {
@@ -82,10 +85,33 @@ class Planner:
                 self._weather_memo[key] = {"condition": p["condition"], "temperature": p["temperature"]}
             elif key in self._weather_memo:
                 p.update(self._weather_memo[key])
+            elif p["past"]:
+                past = self._from_history(now, rep)
+                if past:
+                    p.update(past)
             out.append(p)
         # forget old days
         self._weather_memo = {k: v for k, v in self._weather_memo.items() if k[0] >= now.date()}
         return out
+
+    def _from_history(self, now: datetime, rep_hour: int) -> dict | None:
+        """What the weather entity said at rep_hour today (for periods already past)."""
+        target = datetime.combine(now.date(), datetime.min.time(), now.tzinfo).replace(hour=rep_hour)
+        best = None
+        for st in self._history:
+            if st.get("state") in (None, "unknown", "unavailable"):
+                continue
+            try:
+                changed = datetime.fromisoformat(st.get("last_changed") or st.get("last_updated"))
+            except (TypeError, ValueError):
+                continue
+            if changed <= target or best is None:
+                best = st
+            if changed > target:
+                break
+        if not best:
+            return None
+        return {"condition": best["state"], "temperature": best.get("attributes", {}).get("temperature")}
 
     def _pick_forecast(self, now: datetime, rep_hour: int, evening: bool) -> dict | None:
         """Best forecast entry for today at rep_hour (works for hourly, twice_daily, daily)."""

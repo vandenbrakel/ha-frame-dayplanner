@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1
+
+- Weather periods that have already passed are filled from Home Assistant history
+- Read the Supervisor token from the s6 container environment if it is not in the process environment
+- Log a warning when there is no connection to Home Assistant
+
 ## 0.3.0
 
 - Clock slots are drawn on the minute scale during their own hour; the dial
