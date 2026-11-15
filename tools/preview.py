@@ -20,7 +20,7 @@ from app.planner import Planner  # noqa: E402
 from app.render.engine import render  # noqa: E402
 
 tz = ZoneInfo("Europe/Amsterdam")
-now = datetime.fromisoformat(sys.argv[1]).replace(tzinfo=tz) if len(sys.argv) > 1 else datetime(2026, 11, 16, 8, 40, tzinfo=tz)
+now = datetime.fromisoformat(sys.argv[1]).replace(tzinfo=tz) if len(sys.argv) > 1 else datetime(2026, 11, 16, 8, 2, tzinfo=tz)
 out = ROOT / "docs"
 out.mkdir(exist_ok=True)
 
@@ -28,6 +28,8 @@ for orientation in ("portrait", "landscape"):
     opts = {
         "orientation": orientation,
         "weather_entity": "weather.home",
+        "clock_slots": [{"label": "Naar school", "days": "mon-fri", "start": "08:15", "end": "08:25",
+                         "icon": "mdi:school", "color": "#e0453a"}],
         "events": [
             {"title": "Zwemdag", "when": "mon", "icon": "mdi:swim", "start": "14:00", "end": "17:00",
              "highlight": True, "color": "#1f9aa8"},

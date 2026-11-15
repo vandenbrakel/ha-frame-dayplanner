@@ -7,6 +7,8 @@ STRINGS = {
         "months": ["januari", "februari", "maart", "april", "mei", "juni", "juli",
                    "augustus", "september", "oktober", "november", "december"],
         "periods": ["ochtend", "middag", "avond"],
+        "in_minutes": "nog {n} min",
+        "now": "nu!",
     },
     "en": {
         "days": ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"],
@@ -14,6 +16,8 @@ STRINGS = {
         "months": ["january", "february", "march", "april", "may", "june", "july",
                    "august", "september", "october", "november", "december"],
         "periods": ["morning", "afternoon", "evening"],
+        "in_minutes": "in {n} min",
+        "now": "now!",
     },
 }
 

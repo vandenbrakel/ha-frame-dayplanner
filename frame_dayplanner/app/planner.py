@@ -7,7 +7,7 @@ from datetime import date, datetime, timedelta
 
 from . import puzzles
 from .config import Config
-from .events import events_for_day
+from .events import Event, events_for_day
 from .ha import HAClient
 from .i18n import t
 from .render.engine import RenderContext
@@ -91,6 +91,16 @@ class Planner:
             d = week_start + timedelta(days=i)
             evs = events_for_day(cfg, d, tz, self._calendar)
             week_icons.append([(e.icon, e.color) for e in evs if e.icon])
+        slots = []
+        for d in (now.date(), now.date() + timedelta(days=1)):
+            for sl in cfg.slots:
+                if d.weekday() not in sl.days:
+                    continue
+                start = datetime.combine(d, sl.start, tz)
+                end = datetime.combine(d, sl.end, tz)
+                if end < start:
+                    end += timedelta(days=1)
+                slots.append(Event(sl.label, d, sl.icon or "clock-outline", sl.color or "#e0453a", start, end, False, "slot"))
         seed = puzzles.seed_for(now, cfg.puzzle_refresh, session_id)
         word = puzzles.pick_word(cfg, seed)
         return RenderContext(
@@ -99,6 +109,8 @@ class Planner:
             strings=strings,
             weather=self._weather_periods(cfg, now, strings),
             events=events,
+            slots=slots,
+            seed=seed,
             week_icons=week_icons,
             sum_text=puzzles.make_sum(cfg, seed),
             word=word,

@@ -80,19 +80,41 @@ class ClockModule(Module):
             draw_text_centered(draw, box, ctx.now.strftime("%H:%M"), ctx.theme["ink"], bold=True)
             return
         x0, y0, x1, y1 = box
-        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
-        outer = min(x1 - x0, y1 - y0) / 2
-        arcs = ctx.cfg.clock_event_arcs
-        r = outer * (0.83 if arcs else 0.98)
         th = ctx.theme
         ink = th["ink"]
+        now = ctx.now
+
+        # labelled time slots get a legend below the clock
+        slots = [s for s in ctx.slots if self._visible(s, now)][:3]
+        if slots:
+            row_h = (y1 - y0) * 0.115
+            legend_top = y1 - row_h * len(slots)
+            for i, slot in enumerate(slots):
+                self._legend_row(draw, (x0, legend_top + i * row_h, x1, legend_top + (i + 1) * row_h), slot, ctx)
+            y1 = legend_top - (y1 - y0) * 0.02
+
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+        outer = min(x1 - x0, y1 - y0) / 2
+        arc_items = [e for e in ctx.events if e.timed] if ctx.cfg.clock_event_arcs else []
+        arc_items += slots
+        ring = ctx.cfg.clock_event_arcs or bool(ctx.cfg.slots)
+        r = outer * (0.83 if ring else 0.98)
 
         # face
         draw.ellipse((cx - r, cy - r, cx + r, cy + r), fill=th["bg"], outline=ink, width=max(2, int(r * 0.03)))
 
-        # event arcs on an outer ring
-        if arcs:
-            self._draw_arcs(draw, cx, cy, r, outer, ctx)
+        # 'time timer' wedge: minutes left until the next slot starts
+        upcoming = self._upcoming(slots, ctx)
+        if upcoming and ctx.cfg.clock_slot_timer:
+            mins = math.ceil((upcoming.start - now).total_seconds() / 60)
+            a0 = now.minute * 6 - 90
+            rw = r * 0.955
+            draw.pieslice((cx - rw, cy - rw, cx + rw, cy + rw), a0, a0 + mins * 6,
+                          fill=mix(upcoming.color or th["accent"], th["bg"], 0.72))
+
+        # arcs on an outer ring
+        if ring:
+            self._draw_arcs(draw, cx, cy, r, outer, arc_items, ctx)
 
         # ticks
         for i in range(60):
@@ -142,16 +164,60 @@ class ClockModule(Module):
         for px, py in ((ex, ey), (sx, sy)):
             draw.ellipse((px - w / 2, py - w / 2, px + w / 2, py + w / 2), fill=color)
 
-    def _draw_arcs(self, draw, cx, cy, r, outer, ctx):
+    @staticmethod
+    def _visible(ev, now) -> bool:
+        end = max(ev.end or ev.start, ev.start + timedelta(minutes=1))
+        return end > now and ev.start < now + timedelta(hours=12)
+
+    @staticmethod
+    def _upcoming(slots, ctx):
+        limit = timedelta(minutes=int(ctx.cfg.clock_slot_countdown_minutes))
+        for s in sorted(slots, key=lambda s: s.start):
+            if timedelta(0) < s.start - ctx.now <= limit:
+                return s
+        return None
+
+    def _legend_row(self, draw, box, slot, ctx):
+        x0, y0, x1, y1 = box
+        th = ctx.theme
+        h = y1 - y0
+        now = ctx.now
+        active = slot.start <= now < max(slot.end, slot.start + timedelta(minutes=1))
+        color = slot.color or th["accent"]
+        text = f"{slot.start:%H:%M}"
+        if slot.end and slot.end > slot.start:
+            text += f"-{slot.end:%H:%M}"
+        text += f"  {slot.title}"
+        if active:
+            text += f"  {ctx.strings['now']}"
+        elif self._upcoming([slot], ctx):
+            n = math.ceil((slot.start - now).total_seconds() / 60)
+            text += f"  ({ctx.strings['in_minutes'].format(n=n)})"
+        pad = h * 0.12
+        ir = (h - 2 * pad) / 2 * 0.8
+        size = fit_size(draw, text, (x1 - x0) * 0.9 - 2 * ir - pad * 3, h * 0.55, bold=True)
+        f = font(size, True)
+        tw = text_size(draw, text, f)[0]
+        total = 2 * ir + pad * 1.2 + tw
+        sx = x0 + ((x1 - x0) - total) / 2
+        cy = (y0 + y1) / 2
+        pill = (sx - pad * 2, y0 + pad * 0.5, sx + total + pad * 2, y1 - pad * 0.5)
+        draw.rounded_rectangle(pill, radius=(pill[3] - pill[1]) / 2, fill=color if active else th["panel"])
+        icx = sx + ir
+        draw.ellipse((icx - ir, cy - ir, icx + ir, cy + ir), fill="#ffffff" if active else color)
+        draw_icon(draw, slot.icon or "clock-outline", (icx, cy), ir * 1.3, color if active else "#ffffff")
+        draw.text((sx + 2 * ir + pad * 1.2, cy), text, font=f, fill="#ffffff" if active else th["ink"], anchor="lm")
+
+    def _draw_arcs(self, draw, cx, cy, r, outer, items, ctx):
         now = ctx.now
         horizon = now + timedelta(hours=12)
         ring_r = (r + outer) / 2 + outer * 0.005
         width = int((outer - r) * 0.62)
-        for ev in ctx.events:
-            if not ev.timed or ev.end <= now or ev.start >= horizon:
+        for ev in items:
+            if not self._visible(ev, now):
                 continue
-            start = max(ev.start, now - timedelta(minutes=0))
-            end = min(ev.end, horizon - timedelta(minutes=1))
+            start = max(ev.start, now)
+            end = min(max(ev.end or ev.start, ev.start), horizon - timedelta(minutes=1))
             a0 = (start.hour % 12 + start.minute / 60) * 30 - 90
             span = (end - start).total_seconds() / 3600 * 30
             a1 = a0 + max(span, 3)

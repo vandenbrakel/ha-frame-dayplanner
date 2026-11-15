@@ -3,6 +3,9 @@ from __future__ import annotations
 
 import io
 import logging
+import random
+from functools import lru_cache
+from pathlib import Path
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -10,7 +13,7 @@ from PIL import Image, ImageDraw
 
 from ..config import Config
 from ..events import Event
-from .canvas import THEMES
+from .canvas import THEMES, icon_char, icon_font
 from .modules import REGISTRY
 
 _LOGGER = logging.getLogger(__name__)
@@ -23,10 +26,12 @@ class RenderContext:
     strings: dict
     weather: list[dict] = field(default_factory=list)
     events: list[Event] = field(default_factory=list)
+    slots: list[Event] = field(default_factory=list)
     week_icons: list[list[tuple[str, str]]] = field(default_factory=list)
     sum_text: str = ""
     word: str = ""
     word_sounds: list[str] = field(default_factory=list)
+    seed: str = ""
 
     @property
     def theme(self) -> dict:
@@ -79,7 +84,59 @@ def render(ctx: RenderContext) -> Image.Image:
             lx = x + gutter / 2
             draw.line((lx, pad, lx, H - pad), fill=ctx.theme["line"], width=max(2, int(unit * 0.003)))
             x += gutter
+    if ctx.cfg.hidden_enabled:
+        try:
+            draw_hidden(img, ctx)
+        except Exception:
+            _LOGGER.exception("Hidden figure failed")
     return img
+
+
+@lru_cache(maxsize=4)
+def _load_image(path: str, mtime: float) -> Image.Image:
+    return Image.open(path).convert("RGBA")
+
+
+def _hidden_sprite(ctx: RenderContext, rng: random.Random, size: int) -> Image.Image | None:
+    """Own picture (hidden_image) or one of the hidden_icons, as RGBA sprite."""
+    path = (ctx.cfg.hidden_image or "").strip()
+    if path:
+        p = Path(path)
+        if p.is_dir():
+            files = sorted(f for f in p.iterdir() if f.suffix.lower() in (".png", ".webp", ".gif", ".jpg", ".jpeg"))
+            p = rng.choice(files) if files else p
+        if p.is_file():
+            src = _load_image(str(p), p.stat().st_mtime).copy()
+            src.thumbnail((size, size), Image.LANCZOS)
+            return src
+        _LOGGER.warning("hidden_image %s not found, using an icon", path)
+    icons = [i.strip() for i in str(ctx.cfg.hidden_icons).split(",") if icon_char(i.strip())]
+    if not icons:
+        return None
+    ch = icon_char(rng.choice(icons))
+    sprite = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    ImageDraw.Draw(sprite).text((size / 2, size / 2), ch, font=icon_font(size), fill=ctx.cfg.hidden_color,
+                                anchor="mm")
+    return sprite
+
+
+def draw_hidden(img: Image.Image, ctx: RenderContext) -> None:
+    """Hide one (or more) small figures somewhere; same spot all day."""
+    W, H = img.size
+    unit = min(W, H)
+    size = max(16, int(unit * float(ctx.cfg.hidden_size) / 100))
+    rng = random.Random(f"hidden-{ctx.seed}")
+    margin = int(unit * 0.03)
+    for _ in range(max(0, int(ctx.cfg.hidden_count))):
+        sprite = _hidden_sprite(ctx, rng, size)
+        if sprite is None:
+            return
+        sprite = sprite.rotate(rng.uniform(-35, 35), resample=Image.BICUBIC, expand=True)
+        if rng.random() < 0.5:
+            sprite = sprite.transpose(Image.FLIP_LEFT_RIGHT)
+        x = rng.randint(margin, max(margin, W - sprite.width - margin))
+        y = rng.randint(margin, max(margin, H - sprite.height - margin))
+        img.paste(sprite, (x, y), sprite)
 
 
 def to_jpeg(img: Image.Image, quality: int = 90) -> bytes:

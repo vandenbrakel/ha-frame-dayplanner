@@ -48,6 +48,15 @@ DEFAULTS: dict = {
     "clock_style": "analog",
     "clock_minute_numbers": False,
     "clock_event_arcs": True,
+    "clock_slots": [],
+    "clock_slot_timer": True,
+    "clock_slot_countdown_minutes": 60,
+    "hidden_enabled": True,
+    "hidden_icons": "mdi:owl, mdi:ladybug, mdi:penguin, mdi:snail, mdi:bee, mdi:duck",
+    "hidden_image": "",
+    "hidden_color": "#e0453a",
+    "hidden_size": 5,
+    "hidden_count": 1,
     "weather_entity": "",
     "events": [],
     "calendar_entities": [],
@@ -98,6 +107,16 @@ class EventRule:
 
 
 @dataclass
+class ClockSlot:
+    label: str
+    days: set[int]
+    start: time
+    end: time
+    color: str = ""
+    icon: str = ""
+
+
+@dataclass
 class Column:
     width: float
     rows: list[list[tuple[str, float | None]]]  # each row: [(module, weight)]
@@ -108,6 +127,7 @@ class Config:
     raw: dict
     schedule: list[ScheduleWindow] = field(default_factory=list)
     events: list[EventRule] = field(default_factory=list)
+    slots: list[ClockSlot] = field(default_factory=list)
 
     def __getattr__(self, item):
         try:
@@ -208,6 +228,20 @@ def load_config(path: Path = OPTIONS_FILE) -> Config:
                 end=parse_time(e.get("end")),
                 highlight=bool(e.get("highlight", False)),
                 color=e.get("color") or "",
+            )
+        )
+    for sl in raw.get("clock_slots") or []:
+        start, end = parse_time(sl.get("start")), parse_time(sl.get("end"))
+        if not start:
+            continue
+        cfg.slots.append(
+            ClockSlot(
+                label=sl.get("label") or "",
+                days=parse_days(sl.get("days", "daily")),
+                start=start,
+                end=end or start,
+                color=sl.get("color") or "",
+                icon=sl.get("icon") or "",
             )
         )
     return cfg

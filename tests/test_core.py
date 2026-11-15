@@ -105,5 +105,46 @@ class EventTests(unittest.TestCase):
         self.assertIn("Zwemdag", [e.title for e in events_for_day(cfg, date(2026, 11, 16), TZ, [])])
 
 
+class SlotAndHiddenTests(unittest.TestCase):
+    def _render(self, now, **opts):
+        from app.ha import HAClient
+        from app.planner import Planner
+        from app.render.engine import render
+
+        cfg = cfg_with(resolution="1080p", **opts)
+        planner = Planner(HAClient())
+        ctx = planner.build(cfg, now)
+        with self.assertNoLogs(level="ERROR"):
+            img = render(ctx)
+        return ctx, img
+
+    def test_slots_today_only_on_configured_days(self):
+        slot = [{"label": "Naar school", "days": "mon-fri", "start": "08:15", "end": "08:25"}]
+        ctx, _ = self._render(datetime(2026, 11, 16, 8, 2, tzinfo=TZ), clock_slots=slot)  # monday
+        self.assertEqual(ctx.slots[0].title, "Naar school")
+        self.assertEqual(ctx.slots[0].start.hour, 8)
+        ctx, _ = self._render(datetime(2026, 11, 14, 8, 2, tzinfo=TZ), clock_slots=slot)  # saturday
+        self.assertEqual([s.start.date().weekday() for s in ctx.slots], [])  # sat: none, sun: none
+
+    def test_slot_states_render(self):
+        slot = [{"label": "Naar school", "days": "daily", "start": "08:15", "end": "08:25"}]
+        for hm in ((7, 0), (8, 2), (8, 15), (8, 20), (8, 30), (23, 50)):
+            self._render(datetime(2026, 11, 16, *hm, tzinfo=TZ), clock_slots=slot)
+
+    def test_hidden_same_spot_all_day_and_own_picture(self):
+        from PIL import Image
+
+        d = Path(tempfile.mkdtemp())
+        Image.new("RGBA", (64, 64), (0, 200, 0, 255)).save(d / "fig.png")
+        base = dict(hidden_image=str(d), hidden_size=8, clock_slots=[])
+        _, a = self._render(datetime(2026, 11, 16, 8, 0, tzinfo=TZ), **base)
+        _, b = self._render(datetime(2026, 11, 16, 8, 0, tzinfo=TZ), **base)
+        _, off = self._render(datetime(2026, 11, 16, 8, 0, tzinfo=TZ), **dict(base, hidden_enabled=False))
+        self.assertEqual(a.tobytes(), b.tobytes())
+        self.assertNotEqual(a.tobytes(), off.tobytes())
+        green = sum(1 for p in a.getdata() if p == (0, 200, 0))
+        self.assertGreater(green, 1000)  # the picture is drawn
+
+
 if __name__ == "__main__":
     unittest.main()

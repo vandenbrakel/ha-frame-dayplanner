@@ -61,6 +61,36 @@ layout_portrait:
     modules: "week"
 ```
 
+## Time slots on the clock
+
+Mark important moments, such as when it's time to leave for school:
+
+```yaml
+clock_slots:
+  - label: Naar school
+    days: mon-fri
+    start: "08:15"
+    end: "08:25"
+    icon: mdi:school
+    color: "#e0453a"
+```
+
+The slot shows as a coloured arc on the clock, with a label below the clock.
+In the hour before it starts (`clock_slot_countdown_minutes`) the label adds
+*nog 13 min*, and the minutes that are left are coloured on the clock face:
+when the minute hand reaches the end of the colour, it's time to go. During
+the slot the label turns solid with *nu!*.
+
+## Hidden figure
+
+Every day a small figure is hidden somewhere on the planner (a new spot each
+day, or each hour/session with `puzzle_refresh`). By default it is one of the
+`hidden_icons`. To use your own picture, for example a drawing by your child, put a
+PNG with a transparent background in `/share/dayplanner/` (via the Samba or
+File editor add-on) and set `hidden_image: /share/dayplanner/figure.png`.
+A folder works too; a different picture is picked every day.
+Make it harder with a smaller `hidden_size`, or hide several with `hidden_count`.
+
 ## Events
 
 ```yaml

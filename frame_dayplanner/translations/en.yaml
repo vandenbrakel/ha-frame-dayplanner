@@ -50,6 +50,33 @@ configuration:
   clock_event_arcs:
     name: Clock event arcs
     description: Show today's timed events as coloured arcs around the clock.
+  clock_slots:
+    name: Clock time slots
+    description: "Important moments, e.g. label: Naar school, days: mon-fri, start: 08:15, end: 08:25. Shown as an arc on the clock with a label below it. Optional icon and color."
+  clock_slot_timer:
+    name: Countdown on the clock
+    description: Before a slot starts, colour the minutes that are left on the clock face (like a Time Timer).
+  clock_slot_countdown_minutes:
+    name: Countdown starts (minutes)
+    description: How many minutes before a slot the countdown ("nog 12 min") and the coloured minutes appear.
+  hidden_enabled:
+    name: Hidden figure
+    description: Hide a small figure somewhere on the planner, in a new spot every day. Can you find it?
+  hidden_icons:
+    name: Hidden figure icons
+    description: Comma-separated mdi icons; one is picked every day.
+  hidden_image:
+    name: Own hidden picture
+    description: Path to your own PNG (with transparent background) or a folder of pictures, e.g. /share/dayplanner/hidden. Overrides the icons.
+  hidden_color:
+    name: Hidden figure colour
+    description: Colour of the icon figure.
+  hidden_size:
+    name: Hidden figure size (%)
+    description: Size as a percentage of the screen width (smaller = harder).
+  hidden_count:
+    name: Number of hidden figures
+    description: How many figures to hide.
   weather_entity:
     name: Weather entity
     description: A weather entity, e.g. weather.forecast_home. Leave empty to hide weather.
