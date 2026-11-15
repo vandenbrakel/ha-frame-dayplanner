@@ -119,6 +119,7 @@ events:
     icon: mdi:swim           # any Material Design Icon
     start: "14:00"           # optional: shows an arc on the clock
     end: "17:00"
+    leave_before: 15         # optional: green -> red lead-in on the clock from 13:45 (time to leave)
     highlight: true          # big, in capitals
   - title: Spelen met Fedde
     when: 2026-11-20         # once

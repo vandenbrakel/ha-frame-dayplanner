@@ -202,7 +202,7 @@ class ClockModule(Module):
     def _in_half(self, ev, now) -> bool:
         """Still to come (or running) and within the current AM/PM half."""
         _h0, h1 = self._half(now)
-        return self._end(ev) > now and ev.start < h1
+        return self._end(ev) > now and (getattr(ev, "leave", None) or ev.start) < h1
 
     def _minute_mode(self, slot, now) -> bool:
         """From the full hour of the slot's start (24h) until it ends."""
@@ -278,22 +278,43 @@ class ClockModule(Module):
         _h0, h1 = self._half(now)
         ring_r = (r + outer) / 2 + outer * 0.005
         width = int((outer - r) * 0.62)
+        bb = (cx - ring_r, cy - ring_r, cx + ring_r, cy + ring_r)
+        angle = lambda t: (t.hour % 12 + t.minute / 60 + t.second / 3600) * 30 - 90  # noqa: E731
+
+        def cap(ang, color):  # rounded end
+            ra = math.radians(ang)
+            px, py = cx + ring_r * math.cos(ra), cy + ring_r * math.sin(ra)
+            draw.ellipse((px - width / 2, py - width / 2, px + width / 2, py + width / 2), fill=color)
+
         for ev in items:
             if not self._in_half(ev, now):
                 continue
-            start = max(ev.start, now)
-            end = min(self._end(ev), h1)
-            a0 = (start.hour % 12 + start.minute / 60) * 30 - 90
-            span = (end - start).total_seconds() / 3600 * 30
-            a1 = a0 + max(span, 3)
             color = ev.color or ctx.theme["accent"]
-            bb = (cx - ring_r, cy - ring_r, cx + ring_r, cy + ring_r)
+            end = min(self._end(ev), h1)
+            first_cap = None
+            # 'need to leave' lead-in: green (time to go) -> red (event starts)
+            leave = getattr(ev, "leave", None)
+            if leave and ev.start > now:
+                lead_from, lead_to = max(leave, now), min(ev.start, h1)
+                total = (ev.start - leave).total_seconds()
+                steps = max(2, int((lead_to - lead_from).total_seconds() / 60))
+                for k in range(steps):
+                    t0 = lead_from + (lead_to - lead_from) * k / steps
+                    t1 = lead_from + (lead_to - lead_from) * (k + 1) / steps
+                    frac = ((t0 + (t1 - t0) / 2) - leave).total_seconds() / total
+                    draw.arc(bb, angle(t0), angle(t1) + 0.3, fill=gradient(frac), width=width)
+                first_cap = (angle(lead_from), gradient((lead_from - leave).total_seconds() / total))
+            if ev.start >= h1:  # only the lead-in falls in this half of the day
+                if first_cap:
+                    cap(*first_cap)
+                continue
+            start = max(ev.start, now)
+            a0 = angle(start)
+            a1 = a0 + max((end - start).total_seconds() / 3600 * 30, 3)
             draw.arc(bb, a0, a1, fill=color, width=width)
-            for ang in (a0, a1):  # rounded ends
-                ra = math.radians(ang)
-                px, py = cx + ring_r * math.cos(ra), cy + ring_r * math.sin(ra)
-                draw.ellipse((px - width / 2, py - width / 2, px + width / 2, py + width / 2), fill=color)
-            ra = math.radians((a0 + a1) / 2)  # icon bubble in the middle
+            cap(*(first_cap or (a0, color)))
+            cap(a1, color)
+            ra = math.radians((a0 + a1) / 2)  # icon bubble in the middle of the event itself
             px, py = cx + ring_r * math.cos(ra), cy + ring_r * math.sin(ra)
             br = width * 1.15
             draw.ellipse((px - br, py - br, px + br, py + br), fill=bubble_color(ev.icon, color))

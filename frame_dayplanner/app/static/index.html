@@ -274,8 +274,9 @@ const W = {
     return el('div', {}, input, el('datalist', {id: listId}, o.suggest.map((s) => el('option', {value: s}))));
   },
   number(v, on, o = {}) {
-    return el('input', {type: 'number', value: v ?? '', min: o.min, max: o.max, step: o.step || 1,
-      oninput: (e) => { if (e.target.value !== '') on(Number(e.target.value)); }});
+    const input = el('input', {type: 'number', value: v ?? '', min: o.min, max: o.max, step: o.step || 1,
+      oninput: (e) => { if (e.target.value !== '') on(Number(e.target.value)); else if (o.optional) on(''); }});
+    return o.suffix ? el('span', {class: 'inline'}, input, el('span', {class: 'muted'}, o.suffix)) : input;
   },
   bool(v, on) { return el('input', {type: 'checkbox', checked: !!v, onchange: (e) => on(e.target.checked)}); },
   select(v, on, o) {
@@ -530,7 +531,9 @@ const SPEC = [
       title: (r) => r.title || 'New event',
       item: [{key: 'title', label: 'Title', type: 'text', placeholder: 'Zwemdag'}, {key: 'when', label: 'When', type: 'when'},
         {key: 'icon', label: 'Icon', type: 'icon'}, {key: 'start', label: 'From', type: 'time', optional: true},
-        {key: 'end', label: 'To', type: 'time', optional: true}, {key: 'highlight', label: 'Big', type: 'bool'},
+        {key: 'end', label: 'To', type: 'time', optional: true},
+        {key: 'leave_before', label: 'Leave', type: 'number', min: 0, max: 240, step: 5, optional: true, suffix: 'minutes before the start (empty = no)'},
+        {key: 'highlight', label: 'Big', type: 'bool'},
         {key: 'color', label: 'Colour', type: 'color', optional: true}]},
     {key: 'max_events', type: 'number', min: 0, max: 8},
   ]},

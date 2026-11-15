@@ -235,6 +235,22 @@ class SlotAndHiddenTests(unittest.TestCase):
         events = [{"title": "Dierentuin", "when": "mon", "icon": "🐒", "start": "10:00", "end": "12:00"}]
         self._render(datetime(2026, 11, 16, 8, 5, tzinfo=TZ), events=events, hidden_icons="🐒, mdi:owl")
 
+    def test_leave_before(self):
+        from app.config import build_config
+        from app.events import events_for_day
+
+        cfg = build_config({"events": [{"title": "Zwemles", "when": "mon", "start": "14:00", "end": "15:00",
+                                        "leave_before": 45}]}, strict=True)
+        ev = events_for_day(cfg, date(2026, 11, 16), TZ, [])[0]
+        self.assertEqual(ev.leave, datetime(2026, 11, 16, 13, 15, tzinfo=TZ))
+        with self.assertRaises(ValueError):
+            build_config({"events": [{"title": "x", "when": "mon", "start": "14:00", "leave_before": 999}]}, strict=True)
+        # renders before, during and after the lead-in, and when only the lead-in is in this half of the day
+        for hm in ((11, 0), (13, 20), (13, 59), (14, 30)):
+            self._render(datetime(2026, 11, 16, *hm, tzinfo=TZ), events=[
+                {"title": "Zwemles", "when": "mon", "start": "14:00", "end": "15:00", "leave_before": 45},
+                {"title": "Lunch", "when": "mon", "start": "12:10", "end": "12:40", "leave_before": 30}])
+
     def test_readable_text(self):
         from app.render.canvas import readable_on
 

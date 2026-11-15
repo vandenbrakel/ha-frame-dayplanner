@@ -24,6 +24,7 @@ class Event:
     end: datetime | None = None
     highlight: bool = False
     source: str = "custom"
+    leave: datetime | None = None  # time to leave (before start)
 
     @property
     def timed(self) -> bool:
@@ -73,8 +74,9 @@ def configured_events(cfg: Config, d: date, tz) -> list[Event]:
         end = datetime.combine(d, rule.end, tz) if rule.end else None
         if start and not end:
             end = start + timedelta(hours=1)
+        leave = start - timedelta(minutes=rule.leave_before) if start and rule.leave_before else None
         out.append(Event(rule.title, d, rule.icon or "calendar-star", rule.color or color_for(rule.title),
-                         start, end, rule.highlight, "custom"))
+                         start, end, rule.highlight, "custom", leave))
     return out
 
 

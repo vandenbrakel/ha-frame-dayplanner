@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.0
+
+- Events: `leave_before` (minutes). The clock shows a green -> orange -> red lead-in from the
+  time to leave until the event starts, followed by the event's own arc
+
 ## 0.6.0
 
 - Colour emoji as icons (~1900, e.g. 🐒 🦒 ⚽ 🎂) for events, slots, icon rules and the hidden figure

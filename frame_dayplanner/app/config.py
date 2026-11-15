@@ -106,6 +106,7 @@ class EventRule:
     end: time | None = None
     highlight: bool = False
     color: str = ""
+    leave_before: int = 0  # minutes: 'need to leave' lead-in on the clock
 
 
 @dataclass
@@ -245,6 +246,15 @@ def validate_when(value: str) -> str:
     return value
 
 
+def _minutes(value) -> int:
+    if value in (None, ""):
+        return 0
+    n = int(value)
+    if not 0 <= n <= 240:
+        raise ValueError(f"leave before must be 0-240 minutes, not {n}")
+    return n
+
+
 def parse_layout(columns: list[dict]) -> list[Column]:
     result = []
     for col in columns:
@@ -296,7 +306,8 @@ def build_config(options: dict, strict: bool = False) -> Config:
         item = guard(f"event '{e.get('title')}'", lambda e=e: EventRule(
             title=e["title"], when=validate_when(str(e.get("when", "daily"))), icon=e.get("icon") or "",
             start=parse_time(e.get("start")), end=parse_time(e.get("end")),
-            highlight=bool(e.get("highlight", False)), color=e.get("color") or ""))
+            highlight=bool(e.get("highlight", False)), color=e.get("color") or "",
+            leave_before=_minutes(e.get("leave_before"))))
         if item:
             cfg.events.append(item)
     for sl in raw.get("clock_slots") or []:
