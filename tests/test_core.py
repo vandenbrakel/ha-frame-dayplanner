@@ -353,6 +353,20 @@ class SlotAndHiddenTests(unittest.TestCase):
             self._render(datetime(2026, 11, 15, 22, 30, tzinfo=TZ), events=events, clock_slots=[])
         self.assertEqual(drawn, [["TEST"]])  # before that hour: on the hour ring
 
+    def test_time_left_colours(self):
+        from app.render.canvas import hex_to_rgb
+        from app.render.modules import TIME_LEFT, time_left_color
+
+        green, orange, red, purple = (hex_to_rgb(c) for _m, c in TIME_LEFT)
+        self.assertEqual(time_left_color(25), green)     # 8:05 for 8:30
+        self.assertEqual(time_left_color(12.5), orange)  # 8:17:30
+        self.assertEqual(time_left_color(7.5), red)      # 8:22:30
+        self.assertEqual(time_left_color(1), purple)     # 8:29
+        # in between: blended, not muddy (stays saturated)
+        import colorsys
+        r, g, b = (v / 255 for v in time_left_color(15))
+        self.assertGreater(colorsys.rgb_to_hls(r, g, b)[2], 0.5)
+
     def test_readable_text(self):
         from app.render.canvas import readable_on
 

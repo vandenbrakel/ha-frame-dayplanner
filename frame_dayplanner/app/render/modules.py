@@ -36,14 +36,31 @@ def rounded_panel(draw, box, ctx, fill=None, radius=None):
     draw.rounded_rectangle(box, radius=r, fill=fill or ctx.theme["panel"])
 
 
-GRADIENT = ["#3a9b4a", "#f2c230", "#f08a24", "#e0453a"]  # green -> yellow -> orange -> red
+# Time-left colours, by minutes left until the deadline (end of a slot / start of an event).
+# Example: at school 8:30 -> green until 8:15, orange 8:15-8:20, red 8:20-8:25, purple 8:25-8:30.
+# Colours are blended smoothly around these points (in hue, so green -> orange passes yellow).
+TIME_LEFT = [(17.5, "#3a9b4a"), (12.5, "#f08a24"), (7.5, "#e0453a"), (2.5, "#8e44ad")]
 
 
-def gradient(fraction: float):
-    """Colour on the green -> yellow -> orange -> red scale (0 = start, 1 = end)."""
-    f = max(0.0, min(1.0, fraction)) * (len(GRADIENT) - 1)
-    i = min(int(f), len(GRADIENT) - 2)
-    return mix(GRADIENT[i], GRADIENT[i + 1], f - i)
+def _blend_hue(c1: str, c2: str, t: float):
+    """Blend two colours along the shortest hue path (keeps them bright, no muddy browns)."""
+    import colorsys
+
+    h1, l1, s1 = colorsys.rgb_to_hls(*(v / 255 for v in hex_to_rgb(c1)))
+    h2, l2, s2 = colorsys.rgb_to_hls(*(v / 255 for v in hex_to_rgb(c2)))
+    dh = ((h2 - h1 + 0.5) % 1.0) - 0.5
+    r, g, b = colorsys.hls_to_rgb((h1 + dh * t) % 1.0, l1 + (l2 - l1) * t, s1 + (s2 - s1) * t)
+    return tuple(round(v * 255) for v in (r, g, b))
+
+
+def time_left_color(minutes_left: float):
+    """green (> 15 min) -> orange (15-10) -> red (10-5) -> purple (last 5 min), interpolated."""
+    if minutes_left >= TIME_LEFT[0][0]:
+        return hex_to_rgb(TIME_LEFT[0][1])
+    for (m_hi, c_hi), (m_lo, c_lo) in zip(TIME_LEFT, TIME_LEFT[1:]):
+        if minutes_left >= m_lo:
+            return _blend_hue(c_hi, c_lo, (m_hi - minutes_left) / (m_hi - m_lo))
+    return hex_to_rgb(TIME_LEFT[-1][1])
 
 
 def day_color(ctx, weekday: int) -> str:
@@ -235,11 +252,12 @@ class ClockModule(Module):
         passed = 0.0
         if ctx.now > slot.start:
             passed = min(minutes, (ctx.now - slot.start).total_seconds() / 60)
-        # small segments so the colour can run green -> orange -> red
+        # small segments so the colour can follow the minutes left (green -> orange -> red -> purple)
+        total = (self._end(slot) - slot.start).total_seconds() / 60
         steps = max(2, int(minutes * 4))
         for k in range(steps):
             m0, m1 = minutes * k / steps, minutes * (k + 1) / steps
-            color = self._slot_color(slot, ctx, (m0 + m1) / 2 / minutes)
+            color = self._slot_color(slot, ctx, total - (m0 + m1) / 2)
             if m1 <= passed:  # the part that has already passed fades out
                 color = mix(color, ctx.theme["bg"], 0.6)
             overlap = 0.4 if k < steps - 1 else 0
@@ -267,11 +285,11 @@ class ClockModule(Module):
         return []
 
     @staticmethod
-    def _slot_color(slot, ctx, fraction: float):
-        """Colour of a slot at fraction 0..1 of its duration."""
+    def _slot_color(slot, ctx, minutes_left: float):
+        """Colour of a slot with minutes_left until its end (the deadline)."""
         if not ctx.cfg.clock_slot_gradient:
             return slot.color or ctx.theme["accent"]
-        return gradient(fraction)
+        return time_left_color(minutes_left)
 
     def _legend_row(self, draw, box, slot, ctx):
         x0, y0, x1, y1 = box
@@ -281,8 +299,7 @@ class ClockModule(Module):
         active = slot.start <= now < self._end(slot)
         color = slot.color or th["accent"]
         if active and ctx.cfg.clock_slot_gradient:  # pill follows the colour of the current minute
-            total = (self._end(slot) - slot.start).total_seconds()
-            color = self._slot_color(slot, ctx, (now - slot.start).total_seconds() / total)
+            color = self._slot_color(slot, ctx, (self._end(slot) - now).total_seconds() / 60)
         on_color = readable_on(color)
         text = f"{slot.start:%H:%M}"
         if slot.end and slot.end > slot.start:
@@ -320,24 +337,29 @@ class ClockModule(Module):
             px, py = cx + ring_r * math.cos(ra), cy + ring_r * math.sin(ra)
             draw.ellipse((px - width / 2, py - width / 2, px + width / 2, py + width / 2), fill=color)
 
+        left = lambda t, deadline: (deadline - t).total_seconds() / 60  # noqa: E731
+
+        def time_left_arc(t_from, t_to, deadline):
+            """Arc from t_from to t_to coloured by the minutes left until deadline."""
+            steps = max(2, int((t_to - t_from).total_seconds() / 60))
+            for k in range(steps):
+                t0 = t_from + (t_to - t_from) * k / steps
+                t1 = t_from + (t_to - t_from) * (k + 1) / steps
+                draw.arc(bb, angle(t0), angle(t1) + 0.3, fill=time_left_color(left(t0 + (t1 - t0) / 2, deadline)),
+                         width=width)
+
         for ev in items:
             if not self._in_half(ev, now):
                 continue
             color = ev.color or ctx.theme["accent"]
             end = min(self._end(ev), h1)
             first_cap = None
-            # 'need to leave' lead-in: green (time to go) -> red (event starts)
+            # 'need to leave' lead-in, coloured by the minutes left until the event starts
             leave = getattr(ev, "leave", None)
             if leave and ev.start > now:
                 lead_from, lead_to = max(leave, now), min(ev.start, h1)
-                total = (ev.start - leave).total_seconds()
-                steps = max(2, int((lead_to - lead_from).total_seconds() / 60))
-                for k in range(steps):
-                    t0 = lead_from + (lead_to - lead_from) * k / steps
-                    t1 = lead_from + (lead_to - lead_from) * (k + 1) / steps
-                    frac = ((t0 + (t1 - t0) / 2) - leave).total_seconds() / total
-                    draw.arc(bb, angle(t0), angle(t1) + 0.3, fill=gradient(frac), width=width)
-                first_cap = (angle(lead_from), gradient((lead_from - leave).total_seconds() / total))
+                time_left_arc(lead_from, lead_to, ev.start)
+                first_cap = (angle(lead_from), time_left_color(left(lead_from, ev.start)))
             if ev.start >= h1:  # only the lead-in falls in this half of the day
                 if first_cap:
                     cap(*first_cap)
@@ -345,9 +367,15 @@ class ClockModule(Module):
             start = max(ev.start, now)
             a0 = angle(start)
             a1 = a0 + max((end - start).total_seconds() / 3600 * 30, 3)
-            draw.arc(bb, a0, a1, fill=color, width=width)
-            cap(*(first_cap or (a0, color)))
-            cap(a1, color)
+            if ev.source == "slot" and ctx.cfg.clock_slot_gradient:
+                # a time slot on the hour ring: the same time-left colours, deadline = end of the slot
+                time_left_arc(start, max(end, start + timedelta(minutes=6)), self._end(ev))
+                cap(a0, time_left_color(left(start, self._end(ev))))
+                cap(a1, time_left_color(0))
+            else:
+                draw.arc(bb, a0, a1, fill=color, width=width)
+                cap(*(first_cap or (a0, color)))
+                cap(a1, color)
             ra = math.radians((a0 + a1) / 2)  # icon bubble in the middle of the event itself
             px, py = cx + ring_r * math.cos(ra), cy + ring_r * math.sin(ra)
             br = width * 1.15

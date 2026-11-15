@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.2
+
+- Time rings are coloured by the minutes left until the deadline: green (> 15 min), orange (15-10),
+  red (10-5), purple (last 5), blended smoothly. Used for slots on both rings, `leave_before`
+  lead-ins and the slot label
+
 ## 0.9.1
 
 - An event with `leave_before` is drawn once: during the hour of leaving it is on the minute band

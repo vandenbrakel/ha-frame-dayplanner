@@ -99,9 +99,18 @@ afternoon/evening ones. So a slot at 20:15 never shows up at 08:15.
   like the timed events.
 * From the full hour of the slot (08:00 for 08:15–08:25) until it ends, it is
   drawn on the **minute scale**: a coloured band just inside the rim from
-  minute 15 to 25, running from green via orange to red
-  (`clock_slot_gradient`). When the minute hand reaches the band it's time to
-  go; the colour under the minute hand shows how much time is left.
+  minute 15 to 25. When the minute hand reaches the band it's time to go.
+* The colour shows the **minutes left** until the deadline (the end of a slot,
+  or the start of an event with `leave_before`), on every ring:
+
+  | Minutes left | Colour | At school 8:30 |
+  |---|---|---|
+  | more than 15 | green | until 8:15 |
+  | 15 – 10 | orange | 8:15 – 8:20 |
+  | 10 – 5 | red | 8:20 – 8:25 |
+  | last 5 | purple | 8:25 – 8:30 |
+
+  The colours blend smoothly. `clock_slot_gradient: false` uses the slot's own colour.
   The part that has passed fades out.
 * The label below the clock shows *nog 13 min* in the last
   `clock_slot_countdown_minutes` before the start. During the slot it is

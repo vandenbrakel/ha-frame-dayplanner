@@ -63,8 +63,8 @@ configuration:
     name: Clock time slots
     description: "Important moments, e.g. label: Naar school, days: mon-fri, start: 08:15, end: 08:25. Shown on the clock with a label below it: as an arc on the hour scale, and during its own hour as a band on the minute scale. Optional icon and color."
   clock_slot_gradient:
-    name: Slot colour shows time left
-    description: Draw the slot on the minute scale from green (start) via orange to red (end). Off = use the slot's own colour.
+    name: Colours show minutes left
+    description: "Colour slots and 'leave before' lead-ins by the minutes left: green (more than 15), orange (15-10), red (10-5), purple (last 5), blended. Off = use the slot's own colour."
   clock_slot_countdown_minutes:
     name: Countdown starts (minutes)
     description: How many minutes before a slot the label shows the countdown ("nog 12 min").
