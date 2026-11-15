@@ -132,6 +132,11 @@ events:
     when: 2026-12-19..2027-01-03
 ```
 
+**Icons:** `icon` is a Material Design Icon (`mdi:swim`), or a letter, number or
+short word that is shown in the bubble instead (`A`, `3`, `GYM`). A lower-case word
+that is also an icon name is an icon; write `text:swim` to show the word.
+This works for events, clock slots and icon rules.
+
 Multiple rules in one `when` can be separated with `;`. `monthly 31` means the
 last day of every month. The **Settings** tab on the Dayplanner page has a picker
 for all of these.

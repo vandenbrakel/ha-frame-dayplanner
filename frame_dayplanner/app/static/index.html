@@ -57,6 +57,7 @@
   .days button { padding:6px 0; width:40px; background:transparent; color:var(--ink); border:1px solid var(--line); font-size:14px; }
   .days button.on { background:var(--accent); color:#fff; border-color:var(--accent); }
   .glyph { font-family: mdi; font-size: 22px; line-height: 1; display:inline-block; width: 26px; text-align:center; }
+  .glyph.as-text { font-family: system-ui, sans-serif; font-weight: 800; font-size: 12px; width: auto; min-width: 26px; max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .iconpick { position:relative; display:flex; align-items:center; gap:6px; }
   .iconpick input { flex: 1; }
   .dropdown { position:absolute; z-index: 20; top: 100%; left: 0; right: 0; margin-top: 4px; max-height: 300px; overflow:auto; background:var(--card); border:1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.18); display:grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); padding: 6px; gap: 2px; }
@@ -236,11 +237,23 @@ async function searchIcons(q) {
   for (const [n, cp] of res) iconCache.set(n, cp);
   return res;
 }
+// same rule as the add-on: 'mdi:x' (or a bare lower-case icon name) is an icon, anything else is text
 async function glyphFor(value) {
-  const name = String(value || '').replace(/^mdi:/, '').trim();
-  if (!name) return '';
-  if (!iconCache.has(name)) await searchIcons(name);
-  return iconCache.has(name) ? String.fromCodePoint(iconCache.get(name)) : '?';
+  const raw = String(value || '').trim();
+  if (!raw) return {text: ''};
+  if (/^text:/i.test(raw)) return {text: raw.slice(5).trim()};
+  const isMdi = /^mdi:/i.test(raw);
+  const name = isMdi ? raw.slice(4).toLowerCase() : raw;
+  if (isMdi || name === name.toLowerCase()) {
+    if (!iconCache.has(name)) await searchIcons(name);
+    if (iconCache.has(name)) return {glyph: String.fromCodePoint(iconCache.get(name))};
+    if (isMdi) return {text: '?'};
+  }
+  return {text: raw};
+}
+function setPreview(span, g) {
+  span.textContent = g.glyph || g.text || '';
+  span.classList.toggle('as-text', !g.glyph);
 }
 const entityCache = {};
 function entitiesFor(domain) { return entityCache[domain] ??= call('api/entities?domain=' + domain); }
@@ -339,16 +352,28 @@ const W = {
   },
   icon(v, on, o = {}) {
     const glyph = el('span', {class: 'glyph'});
-    const input = el('input', {type: 'text', value: v || '', placeholder: o.placeholder || 'search: swim, fiets, school…', autocomplete: 'off'});
+    const input = el('input', {type: 'text', value: v || '', autocomplete: 'off',
+      placeholder: o.placeholder || (o.textOk === false ? 'search: swim, fiets, school…' : 'search an icon, or type a letter / word')});
     const drop = el('div', {class: 'dropdown', hidden: true});
     let items = [], sel = -1, timer;
-    const setGlyph = async () => { glyph.textContent = await glyphFor(input.value); };
-    const choose = (name) => { input.value = 'mdi:' + name; on(input.value); setGlyph(); drop.hidden = true; };
+    const setGlyph = async () => setPreview(glyph, await glyphFor(input.value));
+    const choose = (name) => {
+      const typed = input.value.trim();
+      // a typed word that is also an icon name ('swim') is stored as 'text:swim' to keep it text
+      input.value = name !== null ? 'mdi:' + name : (typed === typed.toLowerCase() && iconCache.has(typed) ? 'text:' + typed : typed);
+      on(input.value); setGlyph(); drop.hidden = true;
+    };
     const show = async () => {
-      items = await searchIcons(input.value);
+      const typed = input.value.trim();
+      items = await searchIcons(typed);
+      // offer the typed text itself as the 'icon' (a letter or word)
+      if (o.textOk !== false && typed && !/^mdi:/i.test(typed)) items = [[null, typed], ...items];
       sel = -1;
-      drop.replaceChildren(...items.map(([n, cp], i) => el('button', {type: 'button', title: n, onmousedown: (e) => { e.preventDefault(); choose(n); }},
-        el('span', {class: 'glyph'}, String.fromCodePoint(cp)), n)));
+      drop.replaceChildren(...items.map(([n, cp]) => n === null
+        ? el('button', {type: 'button', title: 'Show this text instead of an icon', onmousedown: (e) => { e.preventDefault(); choose(null); }},
+            el('span', {class: 'glyph as-text'}, cp), `use “${cp}” as text`)
+        : el('button', {type: 'button', title: n, onmousedown: (e) => { e.preventDefault(); choose(n); }},
+            el('span', {class: 'glyph'}, String.fromCodePoint(cp)), n)));
       drop.hidden = !items.length;
     };
     input.addEventListener('focus', show);
@@ -373,14 +398,14 @@ const W = {
     const emit = () => on(list.join(', '));
     const render = async () => {
       chips.replaceChildren(...await Promise.all(list.map(async (name, i) => el('span', {class: 'chip'},
-        el('span', {class: 'glyph', style: 'font-size:18px;width:20px'}, await glyphFor(name)), name.replace(/^mdi:/, ''),
+        el('span', {class: 'glyph', style: 'font-size:18px;width:20px'}, (await glyphFor(name)).glyph || '?'), name.replace(/^mdi:/, ''),
         el('button', {type: 'button', title: 'Remove', onclick: () => { list.splice(i, 1); emit(); render(); }}, '×')))));
     };
     const adder = W.icon('', (x) => {
       if (/^mdi:[a-z0-9-]+$/.test(x) && iconCache.has(x.slice(4))) {
         list.push(x); emit(); render(); adder.querySelector('input').value = ''; adder.querySelector('.glyph').textContent = '';
       }
-    }, {placeholder: 'add an icon…'});
+    }, {placeholder: 'add an icon…', textOk: false});
     render();
     return el('div', {style: 'display:grid; gap:8px'}, chips, adder);
   },

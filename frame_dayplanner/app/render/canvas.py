@@ -36,11 +36,20 @@ def _codepoints() -> dict[str, int]:
 
 
 def icon_char(name: str) -> str | None:
-    name = (name or "").strip().lower()
-    if name.startswith("mdi:"):
-        name = name[4:]
+    """Glyph for 'mdi:swim' (or a bare lower-case icon name like 'swim'); None otherwise."""
+    name = (name or "").strip()
+    if name.lower().startswith("mdi:"):
+        name = name[4:].lower()
+    elif name != name.lower():  # 'Car' or 'GYM' is meant as text, not as an icon
+        return None
     cp = _codepoints().get(name)
     return chr(cp) if cp else None
+
+
+def icon_text(name: str) -> str:
+    """Text to show when the 'icon' is a letter or word ('A', 'Gym', 'text:car')."""
+    name = (name or "").strip()
+    return name[5:].strip() if name.lower().startswith("text:") else name
 
 
 def text_size(draw: ImageDraw.ImageDraw, text: str, fnt) -> tuple[int, int, int, int]:
@@ -90,10 +99,19 @@ def draw_text_centered(draw, box, text, fill, bold=False, max_size=None, size=No
 
 
 def draw_icon(draw, name: str, center: tuple[float, float], size: float, fill) -> bool:
-    ch = icon_char(name)
-    if not ch:
+    """Draw an icon ('mdi:swim') or, for anything else, the letter/word itself."""
+    ch = None if (name or "").strip().lower().startswith("text:") else icon_char(name)
+    if ch:
+        draw.text(center, ch, font=icon_font(int(size)), fill=fill, anchor="mm")
+        return True
+    text = icon_text(name)
+    if not text:
         return False
-    draw.text(center, ch, font=icon_font(int(size)), fill=fill, anchor="mm")
+    if len(text) <= 2:  # a letter or number: as big as an icon
+        fsize = fit_size(draw, text, size * 0.78, size * 0.7, bold=True, start=int(size * 1.2), cap_height=False)
+    else:  # a word: as wide as the icon
+        fsize = fit_size(draw, text, size * 0.86, size * 0.5, bold=True, start=int(size))
+    draw.text(center, text, font=font(fsize, True), fill=fill, anchor="mm")
     return True
 
 

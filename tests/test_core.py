@@ -198,6 +198,24 @@ class SlotAndHiddenTests(unittest.TestCase):
         self.assertEqual(ctx.week_days[0], date(2026, 11, 19))
         self.assertEqual(ctx.week_days[6], date(2026, 11, 25))
 
+    def test_letter_or_word_as_icon(self):
+        from PIL import ImageDraw
+
+        from app.render.canvas import draw_icon, icon_char, icon_text
+
+        self.assertIsNotNone(icon_char("mdi:swim"))
+        self.assertIsNotNone(icon_char("swim"))       # bare lower-case icon name still works
+        self.assertIsNone(icon_char("GYM"))           # capitals = text
+        self.assertIsNone(icon_char("A"))
+        self.assertEqual(icon_text("text:swim"), "swim")
+        for name in ("A", "GYM", "3", "text:swim"):
+            img = Image.new("RGB", (200, 200), "white")
+            self.assertTrue(draw_icon(ImageDraw.Draw(img), name, (100, 100), 120, "black"))
+            self.assertIsNotNone(img.convert("L").point(lambda v: 255 if v < 128 else 0).getbbox(), name)
+        events = [{"title": "Gym", "when": "mon", "icon": "GYM"}, {"title": "Juf Anna", "when": "mon", "icon": "A"}]
+        self._render(datetime(2026, 11, 16, 8, 5, tzinfo=TZ), events=events,
+                     clock_slots=[{"label": "School", "days": "mon", "start": "08:15", "end": "08:25", "icon": "S"}])
+
     def test_readable_text(self):
         from app.render.canvas import readable_on
 

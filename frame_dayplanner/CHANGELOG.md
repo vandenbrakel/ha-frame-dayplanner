@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.1
+
+- An event / slot icon can be a letter, number or word (e.g. `A`, `3`, `GYM`); `mdi:...` stays an icon
+
 ## 0.5.0
 
 - Settings tab on the Dayplanner page with pickers: icon search with previews (Dutch words work too),
