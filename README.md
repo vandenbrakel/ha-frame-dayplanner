@@ -15,7 +15,7 @@ figure hidden somewhere new every day.
 
 1. In Home Assistant go to **Settings → Add-ons → Add-on store**.
 2. Click **⋮ → Repositories** and add
-   `https://github.com/sandervandenbrakel/ha-frame-dayplanner`.
+   `https://github.com/vandenbrakel/ha-frame-dayplanner`.
 3. Install **Frame Dayplanner**, set the TV IP address on the
    *Configuration* tab and start it.
 4. Open **Dayplanner** in the sidebar → **Connect to TV** → accept on the TV.
