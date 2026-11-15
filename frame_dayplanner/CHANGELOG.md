@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.1
+
+- An event with `leave_before` is drawn once: during the hour of leaving it is on the minute band
+  (green -> red until the start, the event icon at the start, then a short piece of the event)
+  instead of also as a small arc on the hour ring
+
 ## 0.9.0
 
 - Schedule: "Also show around events" (`schedule_events`, on by default) switches the planner on

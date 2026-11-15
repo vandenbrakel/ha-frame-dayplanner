@@ -187,7 +187,7 @@ class Planner:
         for ev in events:
             if ev.leave and ev.start:
                 label = strings["leave_label"].format(title=ev.title)
-                slots.append(Event(label, ev.day, ev.icon, ev.color, ev.leave, ev.start, False, "leave"))
+                slots.append(Event(label, ev.day, ev.icon, ev.color, ev.leave, ev.start, False, "leave", ref=ev))
         slots.sort(key=lambda s: s.start)
         seed = puzzles.seed_for(now, cfg.puzzle_refresh, session_id)
         word = puzzles.pick_word(cfg, seed)

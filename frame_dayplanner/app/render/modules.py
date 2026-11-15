@@ -131,7 +131,11 @@ class ClockModule(Module):
         cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
         outer = min(x1 - x0, y1 - y0) / 2
         minute_slots = [s for s in slots if self._minute_mode(s, now)]
-        hour_items = [e for e in ctx.events if e.timed] if ctx.cfg.clock_event_arcs else []
+        # an event whose time to leave is on the minute band is drawn there completely,
+        # not a second time on the hour scale
+        on_band = [s.ref for s in minute_slots if s.source == "leave" and s.ref]
+        hour_items = [e for e in ctx.events if e.timed and not any(e is b for b in on_band)] \
+            if ctx.cfg.clock_event_arcs else []
         # leave slots are already drawn as the lead-in of their event's arc
         hour_items += [s for s in slots if s not in minute_slots and s.source != "leave"]
         hour_items = [e for e in hour_items if self._in_half(e, now)]
@@ -141,8 +145,9 @@ class ClockModule(Module):
         # face
         draw.ellipse((cx - r, cy - r, cx + r, cy + r), fill=th["bg"], outline=ink, width=max(2, int(r * 0.03)))
         ctx.blocked.append(("ellipse", (cx - outer, cy - outer, cx + outer, cy + outer)))
+        bubbles = []  # drawn after ticks and numbers, so no tick runs through them
         for slot in minute_slots:
-            self._minute_band(draw, cx, cy, r, slot, ctx)
+            bubbles += self._minute_band(draw, cx, cy, r, slot, ctx)
         if ring:
             self._hour_arcs(draw, cx, cy, r, outer, hour_items, ctx)
 
@@ -174,6 +179,9 @@ class ClockModule(Module):
         if style == "both":
             fd = font(r * 0.13, bold=True)
             draw.text((cx, cy + r * 0.36), ctx.now.strftime("%H:%M"), font=fd, fill=th["muted"], anchor="mm")
+
+        for bubble in bubbles:
+            bubble()
 
         # hands
         minute = ctx.now.minute
@@ -236,6 +244,27 @@ class ClockModule(Module):
                 color = mix(color, ctx.theme["bg"], 0.6)
             overlap = 0.4 if k < steps - 1 else 0
             draw.arc(bb, a0 + m0 * 6, a0 + m1 * 6 + overlap, fill=color, width=width)
+
+        # leave slot: then a short piece of the event itself in its own colour, with its icon
+        # exactly where it starts (where green -> red ends); a gap keeps the ring readable
+        ev = slot.ref if slot.source == "leave" else None
+        if ev:
+            color = ev.color or ctx.theme["accent"]
+            e0 = a0 + minutes * 6
+            duration = ((ev.end - ev.start).total_seconds() / 60) if ev.end else 15
+            ev_minutes = max(0.0, min(duration, 15, 55 - minutes))
+            if ev_minutes >= 1:
+                draw.arc(bb, e0 - 0.3, e0 + ev_minutes * 6, fill=color, width=width)
+            ra = math.radians(e0)
+            px, py = cx + rb * math.cos(ra), cy + rb * math.sin(ra)
+            br = width * 0.95
+
+            def bubble(px=px, py=py, br=br, color=color, ev=ev):
+                draw.ellipse((px - br, py - br, px + br, py + br), fill=bubble_color(ev.icon, color),
+                             outline=ctx.theme["bg"], width=max(2, int(width * 0.12)))
+                draw_icon(draw, ev.icon, (px, py), br * 1.3, readable_on(color))
+            return [bubble]
+        return []
 
     @staticmethod
     def _slot_color(slot, ctx, fraction: float):

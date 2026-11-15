@@ -332,6 +332,27 @@ class SlotAndHiddenTests(unittest.TestCase):
             ctx, _ = self._render(datetime(2026, 11, 15, 8, 5, tzinfo=TZ), theme=theme)
             self.assertGreaterEqual(contrast(day_color(ctx, 6), THEMES[theme]["bg"]), 1.6)
 
+    def test_leave_event_drawn_once(self):
+        """During the hour of leaving the event is on the minute band only, not also on the hour ring."""
+        from unittest import mock
+
+        from app.render.modules import ClockModule
+
+        events = [{"title": "TEST", "when": "sun", "start": "23:35", "leave_before": 20}]
+        drawn = []
+        orig = ClockModule._hour_arcs
+        with mock.patch.object(ClockModule, "_hour_arcs", lambda self, d, cx, cy, r, o, items, ctx:
+                               (drawn.append([i.title for i in items]), orig(self, d, cx, cy, r, o, items, ctx))):
+            ctx, _ = self._render(datetime(2026, 11, 15, 23, 6, tzinfo=TZ), events=events, clock_slots=[])
+        self.assertEqual(drawn, [])  # nothing left for the hour ring
+        leave = [s for s in ctx.slots if s.source == "leave"][0]
+        self.assertIs(leave.ref, ctx.events[0])
+        drawn.clear()
+        with mock.patch.object(ClockModule, "_hour_arcs", lambda self, d, cx, cy, r, o, items, ctx:
+                               (drawn.append([i.title for i in items]), orig(self, d, cx, cy, r, o, items, ctx))):
+            self._render(datetime(2026, 11, 15, 22, 30, tzinfo=TZ), events=events, clock_slots=[])
+        self.assertEqual(drawn, [["TEST"]])  # before that hour: on the hour ring
+
     def test_readable_text(self):
         from app.render.canvas import readable_on
 

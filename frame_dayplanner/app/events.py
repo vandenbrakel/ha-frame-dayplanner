@@ -25,6 +25,7 @@ class Event:
     highlight: bool = False
     source: str = "custom"
     leave: datetime | None = None  # time to leave (before start)
+    ref: "Event | None" = None  # for automatic 'leave' slots: the event they belong to
 
     @property
     def timed(self) -> bool:
