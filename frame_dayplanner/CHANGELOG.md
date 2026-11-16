@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.0
+
+- Time slots count down on the outer ring like events: from 60 minutes before the end of the slot
+  (school until 08:30 shows from 07:30), in the green-orange-red-purple time-left colours. The icon
+  sits on the slot itself so the countdown stays visible
+
 ## 0.10.0
 
 - Test runs can pretend another time ("As if it is", e.g. tomorrow 07:00): the TV shows the planner

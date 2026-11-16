@@ -99,9 +99,11 @@ time: before 12:00 only morning slots and events are drawn, after 12:00 only
 afternoon/evening ones. So a slot at 20:15 never shows up at 08:15.
 
 * Outside its own hour, a slot is a coloured arc on the outer ring (hour scale),
-  like the timed events. The outer ring only shows what starts within the next
-  60 minutes (or is running). A longer prep time only switches the planner on
-  earlier (see Schedule).
+  like the timed events. The outer ring only shows the coming 60 minutes: an
+  event from 60 minutes before it starts, a time slot from 60 minutes before it
+  **ends**, as a countdown in the time-left colours. "Naar school" 08:00–08:30
+  shows up at 07:30 and runs green → orange → red → purple to 08:30. A longer
+  prep time only switches the planner on earlier (see Schedule).
 * From the full hour of the slot (08:00 for 08:15–08:25) until it ends, it is
   drawn on the **minute scale**: a coloured band just inside the rim from
   minute 15 to 25. When the minute hand reaches the band it's time to go.

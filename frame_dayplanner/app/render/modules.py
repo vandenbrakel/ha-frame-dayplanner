@@ -53,6 +53,9 @@ def _blend_hue(c1: str, c2: str, t: float):
     return tuple(round(v * 255) for v in (r, g, b))
 
 
+SOON_MINUTES = 60  # outer ring: only what happens within the upcoming hour
+
+
 def time_left_color(minutes_left: float):
     """green (> 15 min) -> orange (15-10) -> red (10-5) -> purple (last 5 min), interpolated."""
     if minutes_left >= TIME_LEFT[0][0]:
@@ -229,15 +232,24 @@ class ClockModule(Module):
         start = now.replace(hour=0 if now.hour < 12 else 12, minute=0, second=0, microsecond=0)
         return start, start + timedelta(hours=12)
 
+    def _ring_from(self, ev):
+        """Where an item starts on the outer ring: a time slot counts down the last 60 minutes
+        to its end (school 8:00-8:30 -> from 7:30), an event from its 'leave' time or start."""
+        if ev.source == "slot":
+            return min(ev.start, self._end(ev) - timedelta(minutes=SOON_MINUTES))
+        return getattr(ev, "leave", None) or ev.start
+
     def _in_half(self, ev, now) -> bool:
         """Still to come (or running) and within the current AM/PM half."""
         _h0, h1 = self._half(now)
-        return self._end(ev) > now and (getattr(ev, "leave", None) or ev.start) < h1
+        return self._end(ev) > now and self._ring_from(ev) < h1
 
     def _soon(self, ev, ctx) -> bool:
-        """Show on the outer ring only from 60 minutes before the start until the end.
+        """Show on the outer ring only within the upcoming 60 minutes: an event from 60 minutes
+        before its start, a time slot from 60 minutes before its end, until it ends.
         (A long prep time only switches the planner on earlier, see the schedule.)"""
-        return ev.start - timedelta(minutes=60) <= ctx.now < self._end(ev)
+        deadline = self._end(ev) if ev.source == "slot" else ev.start
+        return deadline - timedelta(minutes=SOON_MINUTES) <= ctx.now < self._end(ev)
 
     def _minute_mode(self, slot, now) -> bool:
         """From the full hour of the slot's start (24h) until it ends."""
@@ -369,7 +381,7 @@ class ClockModule(Module):
                 if first_cap:
                     cap(*first_cap)
                 continue
-            start = max(ev.start, now)
+            start = max(self._ring_from(ev) if ev.source == "slot" else ev.start, now)
             a0 = angle(start)
             a1 = a0 + max((end - start).total_seconds() / 3600 * 30, 3)
             if ev.source == "slot" and ctx.cfg.clock_slot_gradient:
@@ -381,6 +393,9 @@ class ClockModule(Module):
                 draw.arc(bb, a0, a1, fill=color, width=width)
                 cap(*(first_cap or (a0, color)))
                 cap(a1, color)
+            if ev.source == "slot" and ev.start > start:  # slot: bubble on the slot itself, not on its countdown
+                s0 = angle(min(ev.start, end))
+                a0 = max(a0, min(s0, a1 - 3))
             ra = math.radians((a0 + a1) / 2)  # icon bubble in the middle of the event itself
             px, py = cx + ring_r * math.cos(ra), cy + ring_r * math.sin(ra)
             br = width * 1.15

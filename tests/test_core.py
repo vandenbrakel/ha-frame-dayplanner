@@ -419,10 +419,12 @@ class SlotAndHiddenTests(unittest.TestCase):
         self.assertFalse(clock._soon(zwem, ctx))
         ctx.now = at(13, 0)                                    # always 60 minutes before the start
         self.assertTrue(clock._soon(zwem, ctx))
-        ctx.now = at(6, 59)
+        ctx.now = at(7, 29)                                    # slot: 60 minutes before its end
         self.assertFalse(clock._soon(slot, ctx))
-        ctx.now = at(7, 0)
+        ctx.now = at(7, 30)
         self.assertTrue(clock._soon(slot, ctx))
+        self.assertEqual(clock._ring_from(slot), at(7, 30))     # ring starts at 7:30, not 8:00
+        self.assertEqual(clock._ring_from(zwem), at(13, 15))
 
     def test_readable_text(self):
         from app.render.canvas import readable_on
