@@ -425,6 +425,10 @@ class SlotAndHiddenTests(unittest.TestCase):
         self.assertTrue(clock._soon(slot, ctx))
         self.assertEqual(clock._ring_from(slot), at(7, 30))     # ring starts at 7:30, not 8:00
         self.assertEqual(clock._ring_from(zwem), at(13, 15))
+        # the slot countdown is drawn on the minute band (7:30-8:30), not as a stub on the hour ring
+        self.assertFalse(clock._minute_mode(slot, at(7, 29)))
+        self.assertTrue(clock._minute_mode(slot, at(7, 45)))
+        self.assertTrue(clock._minute_mode(slot, at(8, 10)))
 
     def test_readable_text(self):
         from app.render.canvas import readable_on

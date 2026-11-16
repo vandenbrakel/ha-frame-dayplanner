@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.11.1
+
+- The time slot countdown (from 60 minutes before the end) is drawn on the minute band instead of
+  as a short stub on the hour ring, with the slot icon at the end time
+
 ## 0.11.0
 
 - Time slots count down on the outer ring like events: from 60 minutes before the end of the slot

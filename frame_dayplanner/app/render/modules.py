@@ -253,7 +253,10 @@ class ClockModule(Module):
 
     def _minute_mode(self, slot, now) -> bool:
         """From the full hour of the slot's start (24h) until it ends."""
-        return slot.start.replace(minute=0, second=0, microsecond=0) <= now < self._end(slot)
+        begin = slot.start.replace(minute=0, second=0, microsecond=0)
+        if slot.source == "slot":  # and the countdown: the last 60 minutes before the end
+            begin = min(begin, self._ring_from(slot))
+        return begin <= now < self._end(slot)
 
     @staticmethod
     def _upcoming(slot, ctx) -> bool:
@@ -264,13 +267,17 @@ class ClockModule(Module):
         rb = r * 0.97
         width = int(r * 0.13)
         bb = (cx - rb, cy - rb, cx + rb, cy + rb)
-        a0 = slot.start.minute * 6 - 90
-        minutes = min(60.0, max(0.5, (self._end(slot) - slot.start).total_seconds() / 60))
+        begin = slot.start
+        if slot.source == "slot" and ctx.now < slot.start:
+            # countdown before the slot (school 8:00-8:30 from 7:30): only the part still to come
+            begin = max(self._ring_from(slot), ctx.now)
+        a0 = (begin.minute + begin.second / 60) * 6 - 90
+        minutes = min(60.0, max(0.5, (self._end(slot) - begin).total_seconds() / 60))
         passed = 0.0
-        if ctx.now > slot.start:
-            passed = min(minutes, (ctx.now - slot.start).total_seconds() / 60)
+        if ctx.now > begin:
+            passed = min(minutes, (ctx.now - begin).total_seconds() / 60)
         # small segments so the colour can follow the minutes left (green -> orange -> red -> purple)
-        total = (self._end(slot) - slot.start).total_seconds() / 60
+        total = (self._end(slot) - begin).total_seconds() / 60
         steps = max(2, int(minutes * 4))
         for k in range(steps):
             m0, m1 = minutes * k / steps, minutes * (k + 1) / steps
@@ -298,6 +305,17 @@ class ClockModule(Module):
                 draw.ellipse((px - br, py - br, px + br, py + br), fill=bubble_color(ev.icon, color),
                              outline=ctx.theme["bg"], width=max(2, int(width * 0.12)))
                 draw_icon(draw, ev.icon, (px, py), br * 1.3, readable_on(color))
+            return [bubble]
+        if slot.source == "slot" and slot.icon:  # own slot: its icon at the deadline (the end)
+            ra = math.radians(a0 + minutes * 6)
+            px, py = cx + rb * math.cos(ra), cy + rb * math.sin(ra)
+            br = width * 0.95
+            color = self._slot_color(slot, ctx, 0)
+
+            def bubble(px=px, py=py, br=br, color=color):
+                draw.ellipse((px - br, py - br, px + br, py + br), fill=bubble_color(slot.icon, color),
+                             outline=ctx.theme["bg"], width=max(2, int(width * 0.12)))
+                draw_icon(draw, slot.icon, (px, py), br * 1.3, readable_on(color))
             return [bubble]
         return []
 
