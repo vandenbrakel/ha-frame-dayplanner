@@ -1,5 +1,5 @@
 name: Frame Dayplanner
-version: "0.11.1"
+version: "0.12.0"
 slug: frame_dayplanner
 description: Kid-friendly day planner (clock, weather, events, sums, words) pushed to a Samsung The Frame in art mode.
 url: https://github.com/vandenbrakel/ha-frame-dayplanner
@@ -54,13 +54,7 @@ options:
   clock_style: analog
   clock_minute_numbers: false
   clock_event_arcs: true
-  clock_slots:
-    - label: Naar school
-      days: mon-fri
-      start: "08:15"
-      end: "08:25"
-      icon: mdi:school
-      color: "#e0453a"
+  clock_slots: []
   clock_slot_gradient: true
   clock_slot_countdown_minutes: 60
   hidden_enabled: true
@@ -77,6 +71,13 @@ options:
       start: "14:00"
       end: "17:00"
       highlight: true
+    - title: Naar school
+      when: mon-fri
+      icon: mdi:school
+      start: "08:15"
+      end: "08:25"
+      color: "#e0453a"
+      show: countdown
   calendar_entities: []
   calendar_include_words: []
   calendar_exclude_words: []
@@ -130,8 +131,8 @@ schema:
   clock_minute_numbers: bool
   clock_event_arcs: bool
   clock_slots:
-    - label: str
-      days: str
+    - label: str?
+      days: str?
       start: match(^\d{1,2}:\d{2}$)
       end: match(^\d{1,2}:\d{2}$)?
       icon: str?
@@ -154,6 +155,7 @@ schema:
       highlight: bool?
       color: str?
       leave_before: int(0,240)?
+      show: str?
   calendar_entities:
     - str?
   calendar_include_words:

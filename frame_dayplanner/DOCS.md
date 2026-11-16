@@ -80,34 +80,44 @@ layout_portrait:
     modules: "week"
 ```
 
-## Time slots on the clock
+## Countdown on the clock (time slots)
 
-Mark important moments, such as when it's time to leave for school:
+Mark important moments, such as when it's time to leave for school. This is an
+ordinary event with **Show: countdown on the clock** (`show: countdown`):
 
 ```yaml
-clock_slots:
-  - label: Naar school
-    days: mon-fri
-    start: "08:15"
-    end: "08:25"
+events:
+  - title: Naar school
+    when: mon-fri
+    start: "08:00"
+    end: "08:30"
     icon: mdi:school
     color: "#e0453a"
+    show: countdown      # list, week, countdown; default: list,week
 ```
 
-The clock dial always shows the current half of the day, using the 24-hour
-time: before 12:00 only morning slots and events are drawn, after 12:00 only
-afternoon/evening ones. So a slot at 20:15 never shows up at 08:15.
+`show` decides where an event appears: `list` (the events module), `week` (an
+icon on the week strip) and/or `countdown` (a label below the clock and a band
+on the minute scale). Combine them as you like, e.g. `show: list,countdown`.
+Without an end time a countdown counts down to its start.
+The old `clock_slots` setting still works: existing slots are moved into Events
+automatically (with `show: countdown`) and saved that way the next time you
+save the settings.
 
-* Outside its own hour, a slot is a coloured arc on the outer ring (hour scale),
-  like the timed events. The outer ring only shows what starts within the next
-  60 minutes (or is running). A longer prep time only switches the planner on
-  earlier (see Schedule).
-* From 60 minutes before its **end** (and at the latest from the full hour of
-  its start) until it ends, a slot is drawn on the **minute scale**: a coloured
-  band just inside the rim, counting down in the time-left colours with its icon
-  at the end. "Naar school" 08:00–08:30 appears at 07:30; at 07:45 the band runs
-  from minute 45 round to minute 30. When the minute hand reaches the icon it's time to go.
-* The colour shows the **minutes left** until the deadline (the end of a slot,
+The clock dial always shows the current half of the day, using the 24-hour
+time: before 12:00 only morning items are drawn, after 12:00 only
+afternoon/evening ones. So a countdown at 20:15 never shows up at 08:15.
+
+* A countdown shows up **60 minutes before its end** (or from the full hour of its
+  start, if that is earlier) and stays until it ends. "Naar school" 08:00–08:30
+  appears at 07:30.
+* It is drawn on the **minute scale**: a coloured band just inside the rim over
+  its real range only, minute 0 to 30 for 08:00–08:30, with its icon at the end.
+  When the minute hand reaches the icon it's time to go.
+* Other timed events are arcs on the outer ring (hour scale). The outer ring only
+  shows what starts within the next 60 minutes (or is running). A longer prep
+  time only switches the planner on earlier (see Schedule).
+* The colour shows the **minutes left** until the deadline (the end of a countdown,
   or the start of an event with `leave_before`), on every ring:
 
   | Minutes left | Colour | At school 8:30 |
@@ -117,7 +127,7 @@ afternoon/evening ones. So a slot at 20:15 never shows up at 08:15.
   | 10 – 5 | red | 8:20 – 8:25 |
   | last 5 | purple | 8:25 – 8:30 |
 
-  The colours blend smoothly. `clock_slot_gradient: false` uses the slot's own colour.
+  The colours blend smoothly. `clock_slot_gradient: false` uses the event's own colour.
   The part that has passed fades out.
 * The label below the clock shows *nog 13 min* in the last
   `clock_slot_countdown_minutes` before the start. During the slot it is
@@ -161,7 +171,7 @@ events:
 is shown in the bubble instead (`A`, `3`, `GYM`). The icon search on the
 Settings tab finds both icons and emoji, in English and Dutch (*aap*, *fiets*). A lower-case word
 that is also an icon name is an icon; write `text:swim` to show the word.
-This works for events, clock slots and icon rules.
+This works for events and icon rules.
 
 **Time to leave:** with `start` and `leave_before` (minutes) the clock shows a
 green → yellow → orange → red lead-in from the time to leave until the start,

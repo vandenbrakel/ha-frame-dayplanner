@@ -109,16 +109,40 @@ class EventRule:
     highlight: bool = False
     color: str = ""
     leave_before: int = 0  # minutes: 'need to leave' lead-in on the clock
+    show: frozenset = frozenset(("list", "week"))  # list, week, countdown (see SHOW_OPTIONS)
 
 
-@dataclass
-class ClockSlot:
-    label: str
-    days: set[int]
-    start: time
-    end: time
-    color: str = ""
-    icon: str = ""
+# where an event shows up: the events list, the week strip, and/or as a countdown on the clock
+# (label below the clock + band on the minute scale, coloured by the minutes left: the old 'time slots')
+SHOW_OPTIONS = ("list", "week", "countdown")
+DEFAULT_SHOW = "list,week"
+
+
+def parse_show(value) -> frozenset:
+    """'list,week,countdown' -> set.  Missing = list + week; an empty string = nowhere."""
+    if value is None:
+        value = DEFAULT_SHOW
+    items = {p.strip().lower() for p in str(value).split(",") if p.strip()}
+    unknown = items - set(SHOW_OPTIONS)
+    if unknown:
+        raise ValueError(f"unknown show option {', '.join(sorted(unknown))} (use {', '.join(SHOW_OPTIONS)})")
+    return frozenset(items)
+
+
+def migrate_options(options: dict) -> dict:
+    """Old 'clock_slots' become events that only show as a countdown on the clock."""
+    slots = (options or {}).get("clock_slots") or []
+    if not slots:
+        return options
+    out = dict(options)
+    events = list(out.get("events") or [])
+    for sl in slots:
+        ev = {"title": sl.get("label") or "", "when": sl.get("days") or "daily", "start": sl.get("start"),
+              "end": sl.get("end") or sl.get("start"), "icon": sl.get("icon") or "mdi:clock-outline",
+              "color": sl.get("color") or "#e0453a", "show": "countdown"}
+        events.append({k: v for k, v in ev.items() if v not in (None, "")})
+    out["events"], out["clock_slots"] = events, []
+    return out
 
 
 @dataclass
@@ -132,7 +156,6 @@ class Config:
     raw: dict
     schedule: list[ScheduleWindow] = field(default_factory=list)
     events: list[EventRule] = field(default_factory=list)
-    slots: list[ClockSlot] = field(default_factory=list)
 
     def __getattr__(self, item):
         try:
@@ -286,7 +309,7 @@ def build_config(options: dict, strict: bool = False) -> Config:
     """Options dict -> Config.  With strict, invalid entries raise ValueError
     (used when saving from the settings page); otherwise they are skipped."""
     raw = dict(DEFAULTS)
-    raw.update({k: v for k, v in (options or {}).items() if v is not None and k in DEFAULTS})
+    raw.update({k: v for k, v in migrate_options(options or {}).items() if v is not None and k in DEFAULTS})
     cfg = Config(raw=raw)
     errors: list[str] = []
 
@@ -309,19 +332,9 @@ def build_config(options: dict, strict: bool = False) -> Config:
             title=e["title"], when=validate_when(str(e.get("when", "daily"))), icon=e.get("icon") or "",
             start=parse_time(e.get("start")), end=parse_time(e.get("end")),
             highlight=bool(e.get("highlight", False)), color=e.get("color") or "",
-            leave_before=_minutes(e.get("leave_before"))))
+            leave_before=_minutes(e.get("leave_before")), show=parse_show(e.get("show"))))
         if item:
             cfg.events.append(item)
-    for sl in raw.get("clock_slots") or []:
-        def make(sl=sl):
-            start, end = parse_time(sl.get("start")), parse_time(sl.get("end"))
-            if not start:
-                raise ValueError("start time missing")
-            return ClockSlot(label=sl.get("label") or "", days=parse_days(sl.get("days", "daily")),
-                             start=start, end=end or start, color=sl.get("color") or "", icon=sl.get("icon") or "")
-        item = guard(f"clock slot '{sl.get('label', '')}'", make)
-        if item:
-            cfg.slots.append(item)
     if strict and errors:
         raise ValueError("; ".join(errors))
     return cfg

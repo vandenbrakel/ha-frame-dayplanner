@@ -466,7 +466,7 @@ const W = {
     return W.text((v || []).join(', '), (x) => on(x.split(',').map((s) => s.trim()).filter(Boolean)), {placeholder: o.placeholder || 'comma separated'});
   },
   checks(v, on, o) {
-    const chosen = new Set(String(v || '').split(',').map((s) => s.trim()).filter(Boolean));
+    const chosen = new Set(String(v ?? o.default ?? '').split(',').map((s) => s.trim()).filter(Boolean));
     return el('div', {class: 'inline'}, o.options.map(([val, label]) => el('label', {class: 'inline', style: 'margin-right:10px'},
       el('input', {type: 'checkbox', checked: chosen.has(val), onchange: (e) => {
         e.target.checked ? chosen.add(val) : chosen.delete(val);
@@ -542,11 +542,6 @@ const SPEC = [
     {key: 'clock_style', type: 'select', options: [['analog'], ['digital'], ['both']]},
     {key: 'clock_minute_numbers', type: 'bool'},
     {key: 'clock_event_arcs', type: 'bool'},
-    {key: 'clock_slots', type: 'list', addLabel: '+ Add time slot', newItem: {label: '', days: 'mon-fri', start: '08:15', end: '08:25', icon: 'mdi:school'},
-      title: (r) => r.label || 'New slot',
-      item: [{key: 'label', label: 'Label', type: 'text', placeholder: 'Naar school'}, {key: 'days', label: 'Days', type: 'days'},
-        {key: 'start', label: 'From', type: 'time'}, {key: 'end', label: 'To', type: 'time', optional: true},
-        {key: 'icon', label: 'Icon', type: 'icon'}, {key: 'color', label: 'Colour', type: 'color', optional: true}]},
     {key: 'clock_slot_gradient', type: 'bool'},
     {key: 'clock_slot_countdown_minutes', type: 'number', min: 1, max: 60},
   ]},
@@ -557,6 +552,8 @@ const SPEC = [
         {key: 'icon', label: 'Icon', type: 'icon'}, {key: 'start', label: 'From', type: 'time', optional: true},
         {key: 'end', label: 'To', type: 'time', optional: true},
         {key: 'leave_before', label: 'Leave', type: 'number', min: 0, max: 240, step: 5, optional: true, suffix: 'minutes before the start (empty = no)'},
+        {key: 'show', label: 'Show', type: 'checks', default: 'list,week',
+          options: [['list', 'in the list'], ['week', 'in the week strip'], ['countdown', 'countdown on the clock']]},
         {key: 'highlight', label: 'Big', type: 'bool'},
         {key: 'color', label: 'Colour', type: 'color', optional: true}]},
     {key: 'max_events', type: 'number', min: 0, max: 8},

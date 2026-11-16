@@ -60,14 +60,14 @@ configuration:
     name: Clock event arcs
     description: Show today's timed events as coloured arcs around the clock.
   clock_slots:
-    name: Clock time slots
-    description: "Important moments, e.g. label: Naar school, days: mon-fri, start: 08:15, end: 08:25. Shown on the clock with a label below it: as an arc on the hour scale, and during its own hour as a band on the minute scale. Optional icon and color."
+    name: Clock time slots (old)
+    description: "No longer used: time slots are now events with show: countdown. Existing slots are moved into Events automatically."
   clock_slot_gradient:
     name: Colours show minutes left
-    description: "Colour slots and 'leave before' lead-ins by the minutes left: green (more than 15), orange (15-10), red (10-5), purple (last 5), blended. Off = use the slot's own colour."
+    description: "Colour countdown events and 'leave before' lead-ins by the minutes left: green (more than 15), orange (15-10), red (10-5), purple (last 5), blended. Off = use the slot's own colour."
   clock_slot_countdown_minutes:
     name: Countdown starts (minutes)
-    description: How many minutes before a slot the label shows the countdown ("nog 12 min").
+    description: How many minutes before a countdown event the label shows the countdown ("nog 12 min").
   hidden_enabled:
     name: Hidden figure
     description: Hide a small figure in an empty spot (never on text or tiles), a new spot every day. Can you find it?
@@ -91,7 +91,7 @@ configuration:
     description: A weather entity, e.g. weather.forecast_home. Leave empty to hide weather.
   events:
     name: Events
-    description: "Repeating or one-time events. when: weekly 'mon' or 'mon,wed' | monthly 'monthly 15' or 'monthly 1st wed' / 'monthly last fri' | yearly '11-20' | once '2026-11-20' | period '2026-12-21..2027-01-04'. Optional icon (mdi:swim, an emoji like 🐒, or a letter / word like A or GYM), start/end (HH:MM), leave_before (minutes: shows a green-to-red 'time to leave' lead-in on the clock), highlight, color (#hex). Easier: use the Settings tab on the Dayplanner page."
+    description: "Repeating or one-time events. when: weekly 'mon' or 'mon,wed' | monthly 'monthly 15' or 'monthly 1st wed' / 'monthly last fri' | yearly '11-20' | once '2026-11-20' | period '2026-12-21..2027-01-04'. Optional icon (mdi:swim, an emoji like 🐒, or a letter / word like A or GYM), start/end (HH:MM), leave_before (minutes: shows a green-to-red 'time to leave' lead-in on the clock), show (list, week, countdown; default 'list,week'; countdown = label below the clock and a band on the minute scale counting down to the end, e.g. Naar school), highlight, color (#hex). Easier: use the Settings tab on the Dayplanner page."
   calendar_entities:
     name: Calendars
     description: Home Assistant calendar entities, e.g. calendar.family.

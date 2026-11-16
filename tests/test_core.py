@@ -242,6 +242,58 @@ class SlotAndHiddenTests(unittest.TestCase):
         ctx, _ = self._render(datetime(2026, 11, 14, 8, 2, tzinfo=TZ), clock_slots=slot)  # saturday
         self.assertEqual([s.start.date().weekday() for s in ctx.slots], [])  # sat: none, sun: none
 
+    def test_clock_slots_become_countdown_events(self):
+        from app.config import migrate_options
+
+        old = {"clock_slots": [{"label": "Naar school", "days": "mon-fri", "start": "08:00", "end": "08:30",
+                                "icon": "mdi:school"}], "events": [{"title": "Zwemles", "when": "mon"}]}
+        new = migrate_options(old)
+        self.assertEqual(new["clock_slots"], [])
+        self.assertEqual(new["events"][1], {"title": "Naar school", "when": "mon-fri", "start": "08:00",
+                                            "end": "08:30", "icon": "mdi:school", "color": "#e0453a",
+                                            "show": "countdown"})
+        self.assertEqual(migrate_options(new), new)  # nothing left to move
+        cfg = cfg_with(**old)
+        self.assertEqual([r.show for r in cfg.events], [frozenset({"list", "week"}), frozenset({"countdown"})])
+
+    def test_show_options(self):
+        from app.config import build_config
+
+        events = [
+            {"title": "School", "when": "mon", "start": "08:00", "end": "08:30", "show": "countdown"},
+            {"title": "Gym", "when": "mon", "icon": "mdi:basketball", "show": "list,countdown", "start": "08:10"},
+            {"title": "Oma", "when": "mon", "icon": "mdi:account", "show": "week"},
+            {"title": "Fruit", "when": "mon", "icon": "mdi:food-apple"},
+        ]
+        ctx, _ = self._render(datetime(2026, 11, 16, 7, 45, tzinfo=TZ), events=events, holidays_country="")
+        from app.render.modules import EventsModule
+        self.assertEqual([e.title for e in EventsModule()._visible(ctx)], ["Fruit", "Gym"])
+        self.assertEqual({s.title for s in ctx.slots if s.day == date(2026, 11, 16)}, {"School", "Gym"})
+        self.assertEqual(sorted(i for i, _c in ctx.week_icons[0]), ["mdi:account", "mdi:food-apple"])
+        gym = next(s for s in ctx.slots if s.title == "Gym")
+        self.assertEqual(gym.end, gym.start)  # countdown without end: counts down to the start
+        with self.assertRaises(ValueError):
+            build_config({"events": [{"title": "X", "when": "mon", "show": "clock"}]}, strict=True)
+
+    def test_countdown_band_only_paints_the_real_range(self):
+        from app.events import Event
+        from app.render.modules import ClockModule
+
+        at = lambda h, m: datetime(2026, 11, 16, h, m, tzinfo=TZ)  # noqa: E731
+        slot = Event("School", date(2026, 11, 16), icon="mdi:school", start=at(8, 0), end=at(8, 30), source="slot")
+        ctx, _ = self._render(at(7, 45))
+        arcs = []
+
+        class Rec:
+            def arc(self, bb, a0, a1, **kw):
+                arcs.append((a0, a1))
+
+            def ellipse(self, *a, **kw):
+                pass
+        ClockModule()._minute_band(Rec(), 0, 0, 100, slot, ctx)
+        self.assertAlmostEqual(min(a for a, _ in arcs), -90)          # minute 0 (8:00), not 45 (now)
+        self.assertLess(max(b for _, b in arcs), 90.5)                 # up to minute 30
+
     def test_slot_states_render(self):
         slot = [{"label": "Naar school", "days": "daily", "start": "08:15", "end": "08:25"}]
         for hm in ((7, 0), (8, 2), (8, 15), (8, 20), (8, 30), (23, 50)):

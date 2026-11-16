@@ -26,6 +26,11 @@ class Event:
     source: str = "custom"
     leave: datetime | None = None  # time to leave (before start)
     ref: "Event | None" = None  # for automatic 'leave' slots: the event they belong to
+    show: frozenset = frozenset(("list", "week"))  # list, week, countdown (clock)
+
+    @property
+    def countdown(self) -> bool:
+        return "countdown" in self.show
 
     @property
     def timed(self) -> bool:
@@ -73,11 +78,15 @@ def configured_events(cfg: Config, d: date, tz) -> list[Event]:
             continue
         start = datetime.combine(d, rule.start, tz) if rule.start else None
         end = datetime.combine(d, rule.end, tz) if rule.end else None
-        if start and not end:
-            end = start + timedelta(hours=1)
+        countdown = "countdown" in rule.show
+        if start and not end:  # a countdown without end time counts down to its start
+            end = start if countdown else start + timedelta(hours=1)
+        if start and end and end < start:  # e.g. 23:30-00:15
+            end += timedelta(days=1)
         leave = start - timedelta(minutes=rule.leave_before) if start and rule.leave_before else None
-        out.append(Event(rule.title, d, rule.icon or "calendar-star", rule.color or color_for(rule.title),
-                         start, end, rule.highlight, "custom", leave))
+        out.append(Event(rule.title, d, rule.icon or ("clock-outline" if countdown else "calendar-star"),
+                         rule.color or color_for(rule.title), start, end, rule.highlight, "custom", leave,
+                         show=rule.show))
     return out
 
 

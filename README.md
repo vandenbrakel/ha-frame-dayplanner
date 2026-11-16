@@ -8,7 +8,7 @@ for kids (and the rest of the family), shown in art mode and refreshed every min
 Modules: day, date, big analog clock (with event arcs), weather for
 morning/afternoon/evening, weekly and custom events, holidays, HA calendars
 with word filters, a sum and a *klankzuiver* word, a coloured week strip,
-labelled time slots on the clock (e.g. *Naar school* with a countdown) and a
+countdowns on the clock (e.g. *Naar school* with a countdown) and a
 figure hidden somewhere new every day.
 
 ## Install

@@ -154,7 +154,8 @@ class ClockModule(Module):
         # an event whose time to leave is on the minute band is drawn there completely,
         # not a second time on the hour scale
         on_band = [s.ref for s in minute_slots if s.source == "leave" and s.ref]
-        hour_items = [e for e in ctx.events if e.timed and not any(e is b for b in on_band)] \
+        # countdown events are drawn as slots (minute band), not a second time on the hour ring
+        hour_items = [e for e in ctx.events if e.timed and not e.countdown and not any(e is b for b in on_band)] \
             if ctx.cfg.clock_event_arcs else []
         # leave slots are already drawn as the lead-in of their event's arc
         hour_items += [s for s in slots if s not in minute_slots and s.source != "leave"]
@@ -267,10 +268,8 @@ class ClockModule(Module):
         rb = r * 0.97
         width = int(r * 0.13)
         bb = (cx - rb, cy - rb, cx + rb, cy + rb)
+        # only the real range (school 8:00-8:30), also while it already shows up beforehand (from 7:30)
         begin = slot.start
-        if slot.source == "slot" and ctx.now < slot.start:
-            # countdown before the slot (school 8:00-8:30 from 7:30): only the part still to come
-            begin = max(self._ring_from(slot), ctx.now)
         a0 = (begin.minute + begin.second / 60) * 6 - 90
         minutes = min(60.0, max(0.5, (self._end(slot) - begin).total_seconds() / 60))
         passed = 0.0
@@ -457,7 +456,7 @@ class EventsModule(Module):
     name, default_weight = "events", 1.0
 
     def _visible(self, ctx):
-        return ctx.events[: int(ctx.cfg.max_events)]
+        return [e for e in ctx.events if "list" in e.show][: int(ctx.cfg.max_events)]
 
     def weight(self, ctx):
         evs = self._visible(ctx)

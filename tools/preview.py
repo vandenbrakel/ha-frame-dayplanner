@@ -28,9 +28,9 @@ for orientation in ("portrait", "landscape"):
     opts = {
         "orientation": orientation,
         "weather_entity": "weather.home",
-        "clock_slots": [{"label": "Naar school", "days": "mon-fri", "start": "08:15", "end": "08:25",
-                         "icon": "mdi:school", "color": "#e0453a"}],
         "events": [
+            {"title": "Naar school", "when": "mon-fri", "icon": "mdi:school", "start": "08:15", "end": "08:25",
+             "color": "#e0453a", "show": "countdown"},
             {"title": "Zwemdag", "when": "mon", "icon": "mdi:swim", "start": "14:00", "end": "17:00",
              "highlight": True, "color": "#1f9aa8"},
             {"title": "Spelen met Fedde", "when": now.date().isoformat(), "icon": "mdi:account-group"},

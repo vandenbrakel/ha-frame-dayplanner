@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.12.0
+
+- Clock time slots are merged into Events. Every event has a new **Show** setting: in the list,
+  in the week strip and/or as a **countdown on the clock** (the old time slot: label below the clock
+  and a band on the minute scale). Existing time slots are moved into Events automatically
+  (show: countdown) and saved that way the next time you save the settings
+- A countdown without an end time counts down to its start
+- The countdown band only paints the real range (school 08:00-08:30 = minute 0 to 30), while it
+  already shows up 60 minutes before the end (07:30)
+- Countdown events now also switch the planner on around them (Schedule -> Also show around events)
+
 ## 0.11.1
 
 - The time slot countdown (from 60 minutes before the end) is drawn on the minute band instead of

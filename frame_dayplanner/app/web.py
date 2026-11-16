@@ -9,7 +9,7 @@ from pathlib import Path
 
 from aiohttp import web
 
-from .config import DEFAULTS, build_config
+from .config import DEFAULTS, build_config, migrate_options
 from .controller import Controller
 from .render.canvas import FONT_DIR, _codepoints
 
@@ -153,15 +153,18 @@ def make_app(ctrl: Controller) -> web.Application:
 
     @routes.get("/api/options")
     async def get_options(_req):
-        return web.json_response({"options": {k: ctrl.cfg.raw.get(k) for k in DEFAULTS},
+        return web.json_response({"options": {k: v for k, v in _current().items() if k != "clock_slots"},
                                   "labels": _labels()})
+
+    def _current() -> dict:
+        """Current options; old clock time slots already moved into the events."""
+        return migrate_options({k: ctrl.cfg.raw.get(k) for k in DEFAULTS})
 
     @routes.post("/api/options")
     async def save_options(req):
         options = (await req.json()).get("options") or {}
         # merge into the current options, so a partial update never resets other settings
-        options = {**{k: ctrl.cfg.raw.get(k) for k in DEFAULTS},
-                   **{k: v for k, v in options.items() if k in DEFAULTS}}
+        options = {**_current(), **{k: v for k, v in options.items() if k in DEFAULTS}}
         try:
             cfg = build_config(options, strict=True)
             await ctrl.ha.save_addon_options(options)
@@ -174,7 +177,7 @@ def make_app(ctrl: Controller) -> web.Application:
     async def preview_options(req):
         """Render unsaved options (live preview while editing)."""
         options = (await req.json()).get("options") or {}
-        cfg = build_config({**ctrl.cfg.raw, **{k: v for k, v in options.items() if k in DEFAULTS}})
+        cfg = build_config({**_current(), **{k: v for k, v in options.items() if k in DEFAULTS}})
         jpeg = await ctrl.render_jpeg(cfg=cfg)
         return web.Response(body=jpeg, content_type="image/jpeg", headers={"Cache-Control": "no-store"})
 

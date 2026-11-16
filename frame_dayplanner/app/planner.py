@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import time as _time
+from dataclasses import replace
 from datetime import date, datetime, timedelta
 
 from . import puzzles
@@ -176,17 +177,14 @@ class Planner:
         for i in range(7):
             d = days[i]
             evs = events_for_day(cfg, d, tz, self._calendar)
-            week_icons.append([(e.icon, e.color) for e in evs if e.icon])
+            week_icons.append([(e.icon, e.color) for e in evs if e.icon and "week" in e.show])
+        # events with 'clock countdown': a label below the clock and a band on the minute scale
         slots = []
         for d in (now.date(), now.date() + timedelta(days=1)):
-            for sl in cfg.slots:
-                if d.weekday() not in sl.days:
-                    continue
-                start = datetime.combine(d, sl.start, tz)
-                end = datetime.combine(d, sl.end, tz)
-                if end < start:
-                    end += timedelta(days=1)
-                slots.append(Event(sl.label, d, sl.icon or "clock-outline", sl.color or "#e0453a", start, end, False, "slot"))
+            day_events = events if d == now.date() else events_for_day(cfg, d, tz, self._calendar)
+            for ev in day_events:
+                if ev.countdown and ev.start:
+                    slots.append(replace(ev, source="slot", end=ev.end or ev.start, leave=None, ref=ev))
         # events with 'leave before' get an automatic slot from leaving time until the start
         for ev in events:
             if ev.leave and ev.start:
