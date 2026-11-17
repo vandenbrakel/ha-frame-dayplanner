@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.13.0
+
+- Wake the TV: when the planner should show (morning schedule, event, test) and the TV is off or in
+  standby, it is switched on in art mode (Wake-on-LAN, power key, art mode). At most 3 tries per
+  window; never interrupts someone watching TV. The MAC address is learned automatically
+- The app now uses the host network (needed for Wake-on-LAN broadcasts)
+
 ## 0.12.0
 
 - Clock time slots are merged into Events. Every event has a new **Show** setting: in the list,

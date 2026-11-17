@@ -48,6 +48,26 @@ HA calendars count too (after the word filters); all-day events don't.
 Outside these windows nothing happens. *Stop & restore* during a window ends
 it until the next window.
 
+## Waking the TV
+
+With **Wake the TV** (`wake_tv`, on by default) the planner switches the TV on
+when it should be shown (a schedule window, an event or a test run) and the TV
+is off or in standby, for example in the morning:
+
+1. Wake-on-LAN to the TV's MAC address. The MAC is learned automatically while
+   the TV is on (see the Status tab), or fill in `tv_mac` yourself.
+2. Still in standby: a press on the power button.
+3. It came up with the normal TV picture: switch to art mode.
+
+It tries at most 3 times per window, so a TV that someone switches off on
+purpose stays off. A TV that is on and showing TV is never interrupted
+(`only_in_art_mode`).
+
+On the TV, enable **Settings > General > Network > Expert settings > Power on
+with mobile** (called *Wake on LAN* on some models), otherwise a TV that is fully
+off cannot be woken over the network. The app uses the host network for this
+(Wake-on-LAN packets are broadcasts).
+
 ## Layout
 
 Each orientation has its own list of columns. `width` is relative.

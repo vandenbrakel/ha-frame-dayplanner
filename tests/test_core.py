@@ -577,3 +577,86 @@ class SlotAndHiddenTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class WakeTests(unittest.TestCase):
+    def _tv(self, states, art=(False, True)):
+        """FrameTV with a scripted power state; records what it did."""
+        from unittest import mock
+
+        from app.tv import FrameTV
+
+        tv = FrameTV("192.168.1.50")
+        calls, seq, art_seq = [], list(states), list(art)
+        tv.power_state = lambda: (seq.pop(0) if len(seq) > 1 else seq[0], "A0:D7:F3:27:B0:B0")
+        tv.send_wol = lambda mac: calls.append("wol")
+        tv.power_key = lambda: calls.append("power")
+        tv.reachable = lambda: True
+        tv.art_mode_on = lambda: art_seq.pop(0) if len(art_seq) > 1 else art_seq[0]
+        tv._call = lambda name, *a: calls.append(name)
+        return tv, calls, mock.patch("app.tv.time.sleep", lambda s: None)
+
+    def test_already_on_does_nothing(self):
+        tv, calls, nosleep = self._tv(["on"])
+        with nosleep:
+            self.assertEqual(tv.wake(""), "already on")
+        self.assertEqual(calls, [])
+
+    def test_off_wakes_with_wol_then_art_mode(self):
+        tv, calls, nosleep = self._tv(["off", "off", "on"])
+        with nosleep:
+            self.assertIn("woke up", tv.wake("A0:D7:F3:27:B0:B0", wait=0.5))
+        self.assertEqual(calls[0], "wol")
+        self.assertIn("set_artmode", calls)
+        self.assertNotIn("power", calls)
+
+    def test_standby_falls_back_to_power_key(self):
+        tv, calls, nosleep = self._tv(["standby"], art=(True,))  # wake-on-LAN is ignored in standby
+
+        def press():
+            calls.append("power")
+            tv.power_state = lambda: ("on", "A0:D7:F3:27:B0:B0")
+        tv.power_key = press
+        with nosleep:
+            result = tv.wake("A0:D7:F3:27:B0:B0", wait=0.2)
+        self.assertIn("power", calls)
+        self.assertNotIn("set_artmode", calls)  # came up in art mode already
+        self.assertIn("woke up", result)
+
+    def test_magic_packet(self):
+        from unittest import mock
+
+        from app.tv import FrameTV
+
+        sent = []
+        with mock.patch("app.tv.socket.socket") as sock:
+            sock.return_value.__enter__.return_value.sendto = lambda p, t: sent.append((p, t))
+            FrameTV("192.168.200.49").send_wol("a0-d7-f3-27-b0-b0")
+        packet = sent[0][0]
+        self.assertEqual(packet[:6], b"\xff" * 6)
+        self.assertEqual(packet[6:12], bytes.fromhex("a0d7f327b0b0"))
+        self.assertEqual(len(packet), 102)
+        self.assertIn(("192.168.200.255", 9), [t for _p, t in sent])
+        with self.assertRaises(ValueError):
+            FrameTV("x").send_wol("nope")
+
+    def test_controller_wakes_at_most_three_times_per_window(self):
+        import asyncio
+        from unittest import mock
+
+        from app import controller as ctl
+        from app.ha import HAClient
+
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(ctl, "STATE_FILE", Path(d) / "state.json"):
+            c = ctl.Controller(cfg_with(tv_host="192.168.1.50"), HAClient(), TZ)
+            c.tv.power_state = lambda: ("standby", "A0:D7:F3:27:B0:B0")
+            woke = []
+            c.tv.wake = lambda mac: woke.append(mac) or "woke up"
+            for _ in range(5):
+                asyncio.run(c._wake_tv())
+            self.assertEqual(woke, ["A0:D7:F3:27:B0:B0"] * 3)
+            self.assertEqual(c.state["tv_mac"], "A0:D7:F3:27:B0:B0")
+            c.cfg = cfg_with(tv_host="192.168.1.50", wake_tv=False)
+            c._wake_tries = 0
+            asyncio.run(c._wake_tv())
+            self.assertEqual(len(woke), 3)  # setting off: never

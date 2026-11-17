@@ -33,6 +33,8 @@ DEFAULTS: dict = {
     "theme": "paper",
     "day_background": True,
     "only_in_art_mode": True,
+    "wake_tv": True,
+    "tv_mac": "",
     "restore_previous_art": True,
     "update_every_minutes": 1,
     "lead_seconds": 4,

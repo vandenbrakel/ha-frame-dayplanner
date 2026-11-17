@@ -173,7 +173,7 @@ async function status() {
     $('pill').className = 'pill' + (s.active ? ' on' : '');
     $('msg').textContent = s.message || '';
     const rows = [
-      ['TV', s.tv_host || 'not configured'], ['Orientation', s.orientation],
+      ['TV', (s.tv_host || 'not configured') + (s.tv_mac ? ` (MAC ${s.tv_mac})` : '')], ['Orientation', s.orientation],
       ['In schedule', (s.in_schedule ? 'yes' : s.event_window ? `event: ${s.event_window}` : 'no') + (s.suppressed ? ' (stopped manually)' : '')],
       ['Test until', fmt(s.test_until)], ...(s.simulated ? [['Showing', new Date(s.simulated).toLocaleString([], {weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'})]] : []), ['Last push', fmt(s.last_push) + (s.last_push_seconds ? ` (${s.last_push_seconds}s)` : '')],
       ['Next push', fmt(s.next_push)], ['Restores art', s.restore_id || '–'],
@@ -527,6 +527,8 @@ const SPEC = [
     {key: 'theme', type: 'select', options: [['paper', 'paper'], ['paper-texture', 'paper (textured)'], ['kraft', 'kraft paper (textured)'], ['chalkboard', 'chalkboard (textured)'], ['white', 'white'], ['dark', 'dark']]},
     {key: 'day_background', type: 'bool'},
     {key: 'only_in_art_mode', type: 'bool'},
+    {key: 'wake_tv', type: 'bool'},
+    {key: 'tv_mac', type: 'text', placeholder: 'learned automatically, e.g. A0:D7:F3:12:34:56'},
     {key: 'restore_previous_art', type: 'bool'},
     {key: 'update_every_minutes', type: 'number', min: 1, max: 60},
     {key: 'lead_seconds', type: 'number', min: 0, max: 30},

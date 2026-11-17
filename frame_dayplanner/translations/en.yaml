@@ -26,6 +26,12 @@ configuration:
   only_in_art_mode:
     name: Only in art mode
     description: Do nothing while someone is watching TV.
+  wake_tv:
+    name: Wake the TV
+    description: "When the planner should show (schedule, event or test) and the TV is off or in standby, switch it on in art mode (Wake-on-LAN, power key, art mode). At most 3 tries per window, so a TV switched off on purpose stays off. Never interrupts someone watching TV."
+  tv_mac:
+    name: TV MAC address
+    description: "For waking a TV that is fully off. Empty = learned automatically while the TV is on (shown in the status). Needs 'Power on with mobile' / 'Wake on LAN' on the TV (Settings > General > Network > Expert settings)."
   restore_previous_art:
     name: Restore previous art
     description: Show the art that was on screen before when the schedule or test ends.

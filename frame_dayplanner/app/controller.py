@@ -19,6 +19,7 @@ from .tv import FrameTV
 _LOGGER = logging.getLogger(__name__)
 STATE_FILE = DATA_DIR / "state.json"
 RETRY_SECONDS = 30
+WAKE_TRIES = 3  # per planner window: if someone switches the TV off on purpose, leave it off
 
 
 class Controller:
@@ -36,6 +37,7 @@ class Controller:
         self.last_push_seconds: float | None = None
         self.next_push: datetime | None = None
         self._retry_at: datetime | None = None
+        self._wake_tries = 0
         self._wake = asyncio.Event()
         self._lock = asyncio.Lock()
 
@@ -166,6 +168,7 @@ class Controller:
         if not self.cfg.tv_host:
             self.message = "No TV IP address configured"
             return False
+        await self._wake_tv()
         if not await asyncio.to_thread(self.tv.reachable):
             self.message = "TV not reachable (off or wrong IP?)"
             return False
@@ -181,6 +184,25 @@ class Controller:
         self.status = reason
         _LOGGER.info("Session started (%s), will restore %s afterwards", reason, self.state.get("restore_id"))
         return True
+
+    async def _wake_tv(self) -> None:
+        """Off or in standby (e.g. in the morning): switch the TV on in art mode."""
+        state, mac = await asyncio.to_thread(self.tv.power_state)
+        if mac and mac != self.state.get("tv_mac"):  # remember the MAC for when the TV is fully off
+            self.state["tv_mac"] = mac
+            self._save_state()
+        if state == "on" or not self.cfg.wake_tv or self._wake_tries >= WAKE_TRIES:
+            return
+        self._wake_tries += 1
+        self.message = "Waking the TV…"
+        await self._publish()
+        mac = (self.cfg.tv_mac or "").strip() or self.state.get("tv_mac") or ""
+        try:
+            result = await asyncio.to_thread(self.tv.wake, mac)
+        except Exception as exc:
+            result = f"waking failed: {exc}"
+        self.message = f"TV {result}"
+        _LOGGER.info("TV was %s: %s", state, result)
 
     async def _push(self, display_time: datetime) -> None:
         if self.cfg.only_in_art_mode and not await asyncio.to_thread(self.tv.art_mode_on):
@@ -280,6 +302,8 @@ class Controller:
                                 self._retry_at = now + timedelta(seconds=RETRY_SECONDS)
                     else:
                         self.status = "idle"
+                    if not want:
+                        self._wake_tries = 0
             except Exception as exc:
                 self.message = f"Error: {exc}"
                 _LOGGER.exception("Controller error")
@@ -320,6 +344,7 @@ class Controller:
             "next_push": self.next_push.isoformat() if self.next_push and self.state["active"] else None,
             "restore_id": self.state.get("restore_id"),
             "tv_host": self.cfg.tv_host,
+            "tv_mac": (self.cfg.tv_mac or "").strip() or self.state.get("tv_mac"),
             "orientation": self.cfg.orientation,
             "now": self.now().isoformat(),
         }
