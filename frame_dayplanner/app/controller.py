@@ -42,6 +42,8 @@ class Controller:
         self._last_art: bool | None = None  # for automatic rotation: art mode as last seen
         self._auto_task: asyncio.Task | None = None
         self._auto_checked = 0.0
+        self._mac_checked = -1e9
+        self._mac_task: asyncio.Task | None = None
         self._wake = asyncio.Event()
         self._lock = asyncio.Lock()
 
@@ -242,6 +244,10 @@ class Controller:
         if (old.tv_host, old.tv_port, old.matte) != (cfg.tv_host, cfg.tv_port, cfg.matte):
             self.tv.close()
             self.tv = FrameTV(cfg.tv_host, int(cfg.tv_port), cfg.matte)
+        if old.tv_host != cfg.tv_host:  # another TV: learn its MAC again
+            self.state.pop("tv_mac", None)
+            self._save_state()
+            self._mac_checked = -1e9
         self._retry_at = None
         if self.state["active"]:
             self.next_push = self.now()
@@ -280,12 +286,29 @@ class Controller:
         _LOGGER.info("Session started (%s), will restore %s afterwards", reason, self.state.get("restore_id"))
         return True
 
-    async def _wake_tv(self) -> None:
-        """Off or in standby (e.g. in the morning): switch the TV on in art mode."""
+    async def _learn_mac(self) -> tuple[str, str]:
+        """Power state + remember the MAC (read from the TV while it is on) for waking it later."""
         state, mac = await asyncio.to_thread(self.tv.power_state)
-        if mac and mac != self.state.get("tv_mac"):  # remember the MAC for when the TV is fully off
+        if mac and mac != self.state.get("tv_mac"):
             self.state["tv_mac"] = mac
             self._save_state()
+            _LOGGER.info("Learned the TV's MAC address: %s", mac)
+            self._wake.set()
+        return state, mac
+
+    def _maybe_learn_mac(self) -> None:
+        """Until the MAC is known: ask the TV every minute (also right after start)."""
+        if self.state.get("tv_mac") or not self.cfg.tv_host or (self._mac_task and not self._mac_task.done()):
+            return
+        mono = asyncio.get_running_loop().time()
+        if mono - self._mac_checked < 60:
+            return
+        self._mac_checked = mono
+        self._mac_task = asyncio.create_task(self._learn_mac())
+
+    async def _wake_tv(self) -> None:
+        """Off or in standby (e.g. in the morning): switch the TV on in art mode."""
+        state, _mac = await self._learn_mac()
         if state == "on" or not self.cfg.wake_tv or self._wake_tries >= WAKE_TRIES:
             return
         self._wake_tries += 1
@@ -404,6 +427,7 @@ class Controller:
                 _LOGGER.exception("Controller error")
                 self._retry_at = now + timedelta(seconds=RETRY_SECONDS)
             self._maybe_auto_rotate()
+            self._maybe_learn_mac()
             await self._publish()
             # sleep until next push or at most 5 s
             delay = 5.0

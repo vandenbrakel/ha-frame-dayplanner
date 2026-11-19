@@ -726,3 +726,27 @@ class RotateTests(unittest.TestCase):
             art["on"] = True                              # back to art -> portrait
             asyncio.run(c._auto_rotate())
             self.assertEqual(tv["rotation"], "portrait")
+
+
+class MacTests(unittest.TestCase):
+    def test_mac_is_learned_without_a_session(self):
+        import asyncio
+        from unittest import mock
+
+        from app import controller as ctl
+        from app.ha import HAClient
+
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(ctl, "STATE_FILE", Path(d) / "state.json"):
+            c = ctl.Controller(cfg_with(tv_host="192.168.1.50"), HAClient(), TZ)
+            asks = []
+            c.tv.power_state = lambda: asks.append(1) or ("on", "A0:D7:F3:27:B0:B0")
+
+            async def run():
+                c._maybe_learn_mac()          # right after start
+                await c._mac_task
+                c._maybe_learn_mac()          # known now: no more asking
+            asyncio.run(run())
+            self.assertEqual(c.status_dict()["tv_mac"], "A0:D7:F3:27:B0:B0")
+            self.assertEqual(len(asks), 1)
+            c.reconfigure(cfg_with(tv_host="192.168.1.51"))  # other TV: forget
+            self.assertIsNone(c.status_dict()["tv_mac"])

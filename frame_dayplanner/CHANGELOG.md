@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.14.1
+
+- The TV's MAC address (for waking it) is learned right after start and every minute until known,
+  instead of only when a planner session starts. Changing the TV IP forgets it
+
 ## 0.14.0
 
 - Rotate the TV on the Auto Rotating Accessory: holds Multi View for 3 seconds (key and time
