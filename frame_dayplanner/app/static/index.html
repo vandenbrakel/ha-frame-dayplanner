@@ -99,6 +99,7 @@
         <div class="row">
           <button id="refresh" class="secondary">Refresh preview</button>
           <button id="pair" class="secondary">Connect to TV</button>
+          <button id="rotate" class="secondary" title="Hold the rotate key (Auto Rotating Accessory)">Rotate TV ⟳</button>
         </div>
         <dl id="info"></dl>
       </div>
@@ -177,6 +178,7 @@ async function status() {
       ['In schedule', (s.in_schedule ? 'yes' : s.event_window ? `event: ${s.event_window}` : 'no') + (s.suppressed ? ' (stopped manually)' : '')],
       ['Test until', fmt(s.test_until)], ...(s.simulated ? [['Showing', new Date(s.simulated).toLocaleString([], {weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'})]] : []), ['Last push', fmt(s.last_push) + (s.last_push_seconds ? ` (${s.last_push_seconds}s)` : '')],
       ['Next push', fmt(s.next_push)], ['Restores art', s.restore_id || '–'],
+      ['TV rotation', (s.tv_orientation || 'unknown') + (s.rotate_message ? ` · ${s.rotate_message}` : '')],
     ];
     $('info').innerHTML = rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('');
   } catch (e) { $('msg').textContent = 'Cannot reach add-on'; }
@@ -213,6 +215,10 @@ $('tomorrow7').onclick = () => {
 $('clearat').onclick = () => { $('at').value = ''; refreshPreview(); };
 $('stop').onclick = async () => { await call('api/stop', {}); await status(); refreshPreview(); };
 $('refresh').onclick = refreshPreview;
+$('rotate').onclick = async () => {
+  $('msg').textContent = 'Rotating… (holding the key, then waiting for the TV)';
+  const r = await call('api/rotate', {}); $('msg').textContent = r.message; await status();
+};
 $('pair').onclick = async () => { $('msg').textContent = 'Connecting… check the TV for a prompt'; const r = await call('api/pair', {}); $('msg').textContent = r.message; };
 
 /* -------------------------------------------------------------------- days */
@@ -529,6 +535,11 @@ const SPEC = [
     {key: 'only_in_art_mode', type: 'bool'},
     {key: 'wake_tv', type: 'bool'},
     {key: 'tv_mac', type: 'text', placeholder: 'learned automatically, e.g. A0:D7:F3:12:34:56'},
+    {key: 'rotate_auto', type: 'bool'},
+    {key: 'rotate_art', type: 'select', options: [['portrait'], ['landscape'], ['keep', 'keep (do nothing)']]},
+    {key: 'rotate_tv', type: 'select', options: [['landscape'], ['portrait'], ['keep', 'keep (do nothing)']]},
+    {key: 'rotate_key', type: 'text', suggest: ['KEY_MULTI_VIEW', 'KEY_HOME', 'KEY_PLAY_BACK']},
+    {key: 'rotate_hold_seconds', type: 'number', min: 1, max: 10, suffix: 'seconds'},
     {key: 'restore_previous_art', type: 'bool'},
     {key: 'update_every_minutes', type: 'number', min: 1, max: 60},
     {key: 'lead_seconds', type: 'number', min: 0, max: 30},

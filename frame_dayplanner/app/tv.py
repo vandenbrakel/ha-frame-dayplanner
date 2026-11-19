@@ -149,6 +149,25 @@ class FrameTV:
                 self.send_wol(resend)
         return False
 
+    def rotation(self) -> str | None:
+        """'portrait' / 'landscape' as reported by the art mode API (None = unknown)."""
+        value = str(self._call("get_rotation")).strip()
+        return {"1": "landscape", "2": "portrait"}.get(value)
+
+    def hold_key(self, key: str, seconds: float) -> None:
+        """Press and hold a remote key, e.g. Multi View for 3 s rotates the auto rotating mount."""
+        from samsungtvws import SamsungTVWS
+        from samsungtvws.remote import SendRemoteKey
+
+        tv = SamsungTVWS(self.host, port=self.port, token_file=str(TOKEN_FILE), timeout=10, name="FrameDayplanner")
+        try:
+            tv.send_command(SendRemoteKey.hold(key, seconds))
+        finally:
+            try:
+                tv.close()
+            except Exception:
+                pass
+
     def art_mode_on(self) -> bool:
         return str(self._call("get_artmode")).lower() == "on"
 

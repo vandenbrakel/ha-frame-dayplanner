@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.14.0
+
+- Rotate the TV on the Auto Rotating Accessory: holds Multi View for 3 seconds (key and time
+  configurable). Button on the Status tab, `sensor.frame_tv_orientation`, and an action for
+  automations: event `frame_dayplanner` with `action: rotate` (optionally `to: portrait|landscape`,
+  only rotates when needed)
+- Rotate automatically (option): portrait in art mode, landscape when watching TV
+- Docs: example automations with a power plug
+
 ## 0.13.0
 
 - Wake the TV: when the planner should show (morning schedule, event, test) and the TV is off or in

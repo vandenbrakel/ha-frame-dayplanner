@@ -37,7 +37,11 @@ class Controller:
         self.last_push_seconds: float | None = None
         self.next_push: datetime | None = None
         self._retry_at: datetime | None = None
-        self._wake_tries = 0
+        self._wake_tries = 0  # per window
+        self._rotate_lock = asyncio.Lock()
+        self._last_art: bool | None = None  # for automatic rotation: art mode as last seen
+        self._auto_task: asyncio.Task | None = None
+        self._auto_checked = 0.0
         self._wake = asyncio.Event()
         self._lock = asyncio.Lock()
 
@@ -139,6 +143,97 @@ class Controller:
             self.stop()
         elif action == "push":
             self.push_now()
+        elif action == "rotate":
+            await self.rotate(data.get("to"))
+
+    # --------------------------------------------------------------- rotate
+    @property
+    def orientation(self) -> str | None:
+        return self.state.get("tv_orientation")
+
+    async def read_orientation(self) -> str | None:
+        """Ask the TV (only when it is on); remember the answer."""
+        try:
+            if (await asyncio.to_thread(self.tv.power_state))[0] != "on":
+                return None
+            value = await asyncio.to_thread(self.tv.rotation)
+        except Exception as exc:
+            _LOGGER.debug("Could not read rotation: %s", exc)
+            return None
+        if value and value != self.orientation:
+            self.state["tv_orientation"] = value
+            self._save_state()
+        return value
+
+    async def rotate(self, to: str | None = None) -> str:
+        """Rotate the TV (auto rotating mount) by holding the rotate key.  to = portrait / landscape
+        rotates only when needed; empty = always rotate (toggle)."""
+        to = (str(to).strip().lower() or None) if to else None
+        if to not in (None, "portrait", "landscape"):
+            return self._rotate_message(f"Unknown orientation '{to}' (use portrait or landscape)")
+        async with self._rotate_lock:
+            if not self.cfg.tv_host:
+                return self._rotate_message("No TV IP address configured")
+            if (await asyncio.to_thread(self.tv.power_state))[0] != "on":
+                return self._rotate_message("TV is off, cannot rotate")
+            before = await self.read_orientation() or self.orientation
+            if to and before == to:
+                return self._rotate_message(f"Already {to}")
+            key, hold = self.cfg.rotate_key or "KEY_MULTI_VIEW", float(self.cfg.rotate_hold_seconds)
+            _LOGGER.info("Rotating the TV (%s -> %s): holding %s for %ss", before, to or "other", key, hold)
+            try:
+                await asyncio.to_thread(self.tv.hold_key, key, hold)
+            except Exception as exc:
+                return self._rotate_message(f"Rotate failed: {exc}")
+            expected = to or {"portrait": "landscape", "landscape": "portrait"}.get(before or "")
+            # the mount takes a while; the TV reports the new rotation when it is done
+            now = None
+            for _ in range(10):
+                await asyncio.sleep(self.ROTATE_POLL)
+                now = await self.read_orientation()
+                if now and now != before:
+                    break
+            if now and now != before:
+                return self._rotate_message(f"Rotated to {now}")
+            if expected and not now:  # the TV did not tell: keep our own bookkeeping
+                self.state["tv_orientation"] = expected
+                self._save_state()
+                return self._rotate_message(f"Rotated (probably {expected})")
+            return self._rotate_message(f"Held {key} for {hold:g}s but the TV still reports {now or 'no rotation'}")
+
+    ROTATE_POLL = 2.0
+    rotate_message = ""
+
+    def _rotate_message(self, text: str) -> str:
+        self.rotate_message = text
+        _LOGGER.info(text)
+        self._wake.set()
+        return text
+
+    async def _auto_rotate(self) -> None:
+        """Art mode -> rotate_art orientation, watching TV -> rotate_tv orientation (on changes)."""
+        try:
+            if (await asyncio.to_thread(self.tv.power_state))[0] != "on":
+                self._last_art = None  # off: decide again when it comes back on
+                return
+            art = await asyncio.to_thread(self.tv.art_mode_on)
+            if art == self._last_art:
+                return
+            self._last_art = art
+            target = self.cfg.rotate_art if art else self.cfg.rotate_tv
+            if target in ("portrait", "landscape"):
+                await self.rotate(target)
+        except Exception as exc:
+            _LOGGER.debug("Auto rotate check failed: %s", exc)
+
+    def _maybe_auto_rotate(self) -> None:
+        if not self.cfg.rotate_auto or not self.cfg.tv_host:
+            return
+        mono = asyncio.get_running_loop().time()
+        if mono - self._auto_checked < 10 or (self._auto_task and not self._auto_task.done()):
+            return
+        self._auto_checked = mono
+        self._auto_task = asyncio.create_task(self._auto_rotate())
 
     # --------------------------------------------------------------- render
     def reconfigure(self, cfg: Config) -> None:
@@ -308,6 +403,7 @@ class Controller:
                 self.message = f"Error: {exc}"
                 _LOGGER.exception("Controller error")
                 self._retry_at = now + timedelta(seconds=RETRY_SECONDS)
+            self._maybe_auto_rotate()
             await self._publish()
             # sleep until next push or at most 5 s
             delay = 5.0
@@ -345,6 +441,8 @@ class Controller:
             "restore_id": self.state.get("restore_id"),
             "tv_host": self.cfg.tv_host,
             "tv_mac": (self.cfg.tv_mac or "").strip() or self.state.get("tv_mac"),
+            "tv_orientation": self.orientation,
+            "rotate_message": self.rotate_message,
             "orientation": self.cfg.orientation,
             "now": self.now().isoformat(),
         }
@@ -354,10 +452,13 @@ class Controller:
     async def _publish(self) -> None:
         if not self.ha.available:
             return
-        key = (self.status, self.message, self.test_until, self.last_push)
+        key = (self.status, self.message, self.test_until, self.last_push, self.orientation, self.rotate_message)
         if key == self._published:
             return
         self._published = key
         d = self.status_dict()
         await self.ha.set_state("sensor.frame_dayplanner", self.status, {
             "friendly_name": "Frame Dayplanner", "icon": "mdi:calendar-clock", **{k: v for k, v in d.items() if k != "status"}})
+        await self.ha.set_state("sensor.frame_tv_orientation", self.orientation or "unknown", {
+            "friendly_name": "Frame TV orientation", "message": self.rotate_message,
+            "icon": "mdi:phone-rotate-portrait" if self.orientation == "portrait" else "mdi:phone-rotate-landscape"})

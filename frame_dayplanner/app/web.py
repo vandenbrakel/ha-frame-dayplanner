@@ -207,6 +207,12 @@ def make_app(ctrl: Controller) -> web.Application:
         ctrl.stop()
         return web.json_response(ctrl.status_dict())
 
+    @routes.post("/api/rotate")
+    async def rotate(req):
+        data = await req.json() if req.can_read_body else {}
+        message = await ctrl.rotate(data.get("to"))
+        return web.json_response({**ctrl.status_dict(), "message": message})
+
     @routes.post("/api/pair")
     async def pair(_req):
         """Connect to the TV so it shows the 'allow' prompt and we get a token."""

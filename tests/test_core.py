@@ -660,3 +660,69 @@ class WakeTests(unittest.TestCase):
             c._wake_tries = 0
             asyncio.run(c._wake_tv())
             self.assertEqual(len(woke), 3)  # setting off: never
+
+
+class RotateTests(unittest.TestCase):
+    def _controller(self, d, rotation="portrait", power="on", reports=True, **opts):
+        from unittest import mock
+
+        from app import controller as ctl
+        from app.ha import HAClient
+
+        patch = mock.patch.object(ctl, "STATE_FILE", Path(d) / "state.json")
+        patch.start()
+        self.addCleanup(patch.stop)
+        c = ctl.Controller(cfg_with(tv_host="192.168.1.50", **opts), HAClient(), TZ)
+        c.ROTATE_POLL = 0
+        tv = {"rotation": rotation, "power": power, "held": []}
+        c.tv.power_state = lambda: (tv["power"], "")
+        c.tv.rotation = lambda: tv["rotation"] if reports else None
+
+        def hold(key, seconds):
+            tv["held"].append((key, seconds))
+            tv["rotation"] = {"portrait": "landscape", "landscape": "portrait"}[tv["rotation"]]
+        c.tv.hold_key = hold
+        return c, tv
+
+    def test_rotate_toggle_and_target(self):
+        import asyncio
+
+        with tempfile.TemporaryDirectory() as d:
+            c, tv = self._controller(d)
+            self.assertEqual(asyncio.run(c.rotate()), "Rotated to landscape")
+            self.assertEqual(tv["held"], [("KEY_MULTI_VIEW", 3.0)])
+            self.assertEqual(asyncio.run(c.rotate("landscape")), "Already landscape")  # no key press
+            self.assertEqual(len(tv["held"]), 1)
+            self.assertEqual(asyncio.run(c.rotate("portrait")), "Rotated to portrait")
+            self.assertEqual(c.orientation, "portrait")
+            self.assertIn("Unknown", asyncio.run(c.rotate("sideways")))
+            tv["power"] = "standby"
+            self.assertEqual(asyncio.run(c.rotate()), "TV is off, cannot rotate")
+
+    def test_rotate_keeps_own_bookkeeping_when_tv_does_not_report(self):
+        import asyncio
+
+        with tempfile.TemporaryDirectory() as d:
+            c, tv = self._controller(d, reports=False, rotate_key="KEY_HOME", rotate_hold_seconds=4)
+            c.state["tv_orientation"] = "landscape"
+            self.assertEqual(asyncio.run(c.rotate()), "Rotated (probably portrait)")
+            self.assertEqual(tv["held"], [("KEY_HOME", 4.0)])
+            self.assertEqual(asyncio.run(c.rotate("portrait")), "Already portrait")
+
+    def test_auto_rotate_follows_art_mode(self):
+        import asyncio
+
+        with tempfile.TemporaryDirectory() as d:
+            c, tv = self._controller(d, rotation="portrait", rotate_auto=True)
+            art = {"on": True}
+            c.tv.art_mode_on = lambda: art["on"]
+            asyncio.run(c._auto_rotate())                 # art mode, already portrait
+            self.assertEqual(tv["held"], [])
+            art["on"] = False                             # watching TV -> landscape
+            asyncio.run(c._auto_rotate())
+            self.assertEqual(tv["rotation"], "landscape")
+            asyncio.run(c._auto_rotate())                 # no change: nothing (manual rotation is respected)
+            self.assertEqual(len(tv["held"]), 1)
+            art["on"] = True                              # back to art -> portrait
+            asyncio.run(c._auto_rotate())
+            self.assertEqual(tv["rotation"], "portrait")

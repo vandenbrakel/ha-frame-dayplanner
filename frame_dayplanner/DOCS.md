@@ -68,6 +68,64 @@ with mobile** (called *Wake on LAN* on some models), otherwise a TV that is full
 off cannot be woken over the network. The app uses the host network for this
 (Wake-on-LAN packets are broadcasts).
 
+## Rotating the TV (Auto Rotating Accessory)
+
+A small extra, separate from the planner: rotate a Frame on Samsung's
+motorised mount from Home Assistant. Samsung rotates it when you **hold Multi View
+on the remote for 3 seconds**; the app sends exactly that (`rotate_key`
+`KEY_MULTI_VIEW`, `rotate_hold_seconds` 3; change them if your model uses another key).
+
+* **Status tab:** button *Rotate TV ⟳*.
+* **Sensor:** `sensor.frame_tv_orientation` = `portrait` / `landscape` (read from the
+  TV when it is on, otherwise the last known one).
+* **Action** for automations (rotates only when needed with `to`; without `to` it toggles):
+
+In the automation editor: *Add action → Other actions → Fire event*, event type
+`frame_dayplanner`, event data `{action: rotate, to: landscape}`. In YAML:
+
+```yaml
+- event: frame_dayplanner
+  event_data:
+    action: rotate
+    to: landscape            # portrait | landscape | (empty = toggle)
+```
+
+### Automatically
+
+Turn on **Rotate automatically** (`rotate_auto`): the app checks every 10 seconds
+whether the TV is in art mode or showing TV, and on a change rotates to
+`rotate_art` (default portrait) or `rotate_tv` (default landscape). Only on a
+change, so if you rotate by hand it stays that way until the next switch.
+
+### With a power plug
+
+The art mode check needs the TV's network connection. If you prefer a smart plug
+with power readings (art mode uses far less power than watching TV):
+
+```yaml
+automation:
+  - alias: Frame landscape when watching
+    triggers:
+      - trigger: numeric_state
+        entity_id: sensor.frame_plug_power
+        above: 60
+        for: "00:00:10"
+    actions:
+      - event: frame_dayplanner
+        event_data: {action: rotate, to: landscape}
+  - alias: Frame portrait in art mode
+    triggers:
+      - trigger: numeric_state
+        entity_id: sensor.frame_plug_power
+        below: 40
+        for: "00:00:30"
+    actions:
+      - event: frame_dayplanner
+        event_data: {action: rotate, to: portrait}
+```
+
+Check the power of your TV in both modes first and pick thresholds in between.
+
 ## Layout
 
 Each orientation has its own list of columns. `width` is relative.
@@ -226,7 +284,7 @@ The sum and word stay the same all day (or hour / session, see `puzzle_refresh`)
 ## Automations
 
 The add-on listens to the event `frame_dayplanner` with data
-`action: test | stop | push`, `minutes` (for `test`) and optionally `at`
+`action: test | stop | push | rotate`, `minutes` (for `test`), `to` (for `rotate`, see Rotating the TV) and optionally `at`
 (`"07:00"` = the next 07:00, or `"2026-11-16T07:00"`) to pretend another time. In a script or
 automation:
 

@@ -29,6 +29,21 @@ configuration:
   wake_tv:
     name: Wake the TV
     description: "When the planner should show (schedule, event or test) and the TV is off or in standby, switch it on in art mode (Wake-on-LAN, power key, art mode). At most 3 tries per window, so a TV switched off on purpose stays off. Never interrupts someone watching TV."
+  rotate_key:
+    name: Rotate key
+    description: "Remote key held to rotate the TV on the Auto Rotating Accessory (Samsung: hold Multi View). Default KEY_MULTI_VIEW."
+  rotate_hold_seconds:
+    name: Rotate hold time (seconds)
+    description: How long the rotate key is held.
+  rotate_auto:
+    name: Rotate automatically
+    description: Rotate the TV when it switches between art mode and watching TV (see the next two settings). Also available as an action for your own automations.
+  rotate_art:
+    name: Orientation in art mode
+    description: portrait, landscape or keep (do nothing).
+  rotate_tv:
+    name: Orientation when watching TV
+    description: portrait, landscape or keep (do nothing).
   tv_mac:
     name: TV MAC address
     description: "For waking a TV that is fully off. Empty = learned automatically while the TV is on (shown in the status). Needs 'Power on with mobile' / 'Wake on LAN' on the TV (Settings > General > Network > Expert settings)."

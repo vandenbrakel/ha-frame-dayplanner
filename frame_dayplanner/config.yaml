@@ -1,5 +1,5 @@
 name: Frame Dayplanner
-version: "0.13.0"
+version: "0.14.0"
 slug: frame_dayplanner
 description: Kid-friendly day planner (clock, weather, events, sums, words) pushed to a Samsung The Frame in art mode.
 url: https://github.com/vandenbrakel/ha-frame-dayplanner
@@ -30,6 +30,11 @@ options:
   only_in_art_mode: true
   wake_tv: true
   tv_mac: ""
+  rotate_key: KEY_MULTI_VIEW
+  rotate_hold_seconds: 3
+  rotate_auto: false
+  rotate_art: portrait
+  rotate_tv: landscape
   restore_previous_art: true
   update_every_minutes: 1
   lead_seconds: 4
@@ -117,6 +122,11 @@ schema:
   only_in_art_mode: bool
   wake_tv: bool
   tv_mac: str?
+  rotate_key: str
+  rotate_hold_seconds: int(1,10)
+  rotate_auto: bool
+  rotate_art: list(portrait|landscape|keep)
+  rotate_tv: list(portrait|landscape|keep)
   restore_previous_art: bool
   update_every_minutes: int(1,60)
   lead_seconds: int(0,30)
